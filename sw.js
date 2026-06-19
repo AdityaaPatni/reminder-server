@@ -1,53 +1,111 @@
-const CACHE = 'reminders-v2';
+const CACHE = 'reminders-v4';
 const FILES = ['./', './index.html', './manifest.json', './icon.svg'];
-const timers = {};
+const scheduled = {};   // one-shot timers
+const repeats = {};     // 5-min repeat timers
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES).catch(() => {})));
   self.skipWaiting();
 });
-
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
-
 self.addEventListener('fetch', e => {
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
 
+/* ── Build notification options ── */
+function buildOpts(d, bodyOverride) {
+  return {
+    body: bodyOverride || d.body || 'Time for your reminder!',
+    requireInteraction: true,
+    vibrate: [400, 150, 400, 150, 400, 150, 600],
+    tag: d.id,
+    renotify: true,
+    data: d,
+    actions: [
+      { action: 'snooze',  title: '\u{1F4A4} Snooze 5 min' },
+      { action: 'dismiss', title: '✕ Dismiss' }
+    ]
+  };
+}
+
+/* ── Fire + start 5-min repeat ── */
+function fireAndRepeat(d) {
+  self.registration.showNotification(d.title, buildOpts(d));
+  scheduleRepeat(d);
+}
+
+function scheduleRepeat(d) {
+  stopRepeat(d.id);
+  repeats[d.id] = setTimeout(() => {
+    delete repeats[d.id];
+    self.registration.showNotification('⏰ ' + d.title, buildOpts(d, 'Still waiting—tap to dismiss.'));
+    scheduleRepeat(d); // recurse every 5 min
+  }, 5 * 60 * 1000);
+}
+
+function stopRepeat(id) {
+  if (repeats[id]) { clearTimeout(repeats[id]); delete repeats[id]; }
+}
+
+/* ── Message from page ── */
 self.addEventListener('message', e => {
   if (!e.data) return;
-  if (e.data.type === 'SHOW') {
-    self.registration.showNotification(e.data.title, e.data.opts || {});
+  const m = e.data;
+  if (m.type === 'SHOW') {
+    fireAndRepeat(m.data);
   }
-  if (e.data.type === 'SCHEDULE') {
-    const { id, title, body, delay } = e.data;
-    if (timers[id]) clearTimeout(timers[id]);
-    timers[id] = setTimeout(() => {
-      self.registration.showNotification(title, {
-        body, requireInteraction: true,
-        vibrate: [400, 150, 400, 150, 400, 150, 600],
-        tag: id, renotify: true
-      });
-      delete timers[id];
-    }, delay);
+  if (m.type === 'SCHEDULE') {
+    if (scheduled[m.id]) clearTimeout(scheduled[m.id]);
+    scheduled[m.id] = setTimeout(() => {
+      delete scheduled[m.id];
+      fireAndRepeat({ id: m.id, title: m.title, body: m.body, wa: m.wa, phone: m.phone });
+    }, m.delay);
   }
-  if (e.data.type === 'CANCEL') {
-    if (timers[e.data.id]) { clearTimeout(timers[e.data.id]); delete timers[e.data.id]; }
+  if (m.type === 'CANCEL') {
+    if (scheduled[m.id]) { clearTimeout(scheduled[m.id]); delete scheduled[m.id]; }
+    stopRepeat(m.id);
   }
 });
 
+/* ── Notification click / action ── */
 self.addEventListener('notificationclick', e => {
+  const d = e.notification.data || {};
   e.notification.close();
+  stopRepeat(d.id);
+
+  if (e.action === 'snooze') {
+    // Reschedule in 5 min, then repeat again from there
+    if (scheduled[d.id]) clearTimeout(scheduled[d.id]);
+    scheduled[d.id] = setTimeout(() => {
+      delete scheduled[d.id];
+      fireAndRepeat(d);
+    }, 5 * 60 * 1000);
+    broadcast({ type: 'SNOOZED', id: d.id });
+    return;
+  }
+
+  if (e.action === 'dismiss') {
+    broadcast({ type: 'DISMISSED', id: d.id });
+    return;
+  }
+
+  // Body tap — open app
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      const c = list.find(c => c.focused) || list[0];
-      if (c) { c.focus(); c.postMessage({ type: 'NOTIF_TAPPED', data: e.notification.data }); }
-      else self.clients.openWindow('./');
+      const win = list.find(c => 'focus' in c);
+      if (win) { win.focus(); win.postMessage({ type: 'NOTIF_TAPPED', data: d }); return; }
+      return self.clients.openWindow('./');
     })
   );
 });
+
+function broadcast(msg) {
+  self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then(list => list.forEach(c => c.postMessage(msg)));
+}
