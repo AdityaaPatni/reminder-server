@@ -1,7 +1,7 @@
-const CACHE = 'reminders-v4';
+const CACHE = 'reminders-v5';
 const FILES = ['./', './index.html', './manifest.json', './icon.svg'];
-const scheduled = {};   // one-shot timers
-const repeats = {};     // 5-min repeat timers
+const scheduled = {};
+const repeats = {};
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES).catch(() => {})));
@@ -18,7 +18,6 @@ self.addEventListener('fetch', e => {
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
 
-/* ── Build notification options ── */
 function buildOpts(d, bodyOverride) {
   return {
     body: bodyOverride || d.body || 'Time for your reminder!',
@@ -34,7 +33,19 @@ function buildOpts(d, bodyOverride) {
   };
 }
 
-/* ── Fire + start 5-min repeat ── */
+// Handle push from server — fires even when app is killed
+self.addEventListener('push', e => {
+  if (!e.data) return;
+  const d = e.data.json();
+  e.waitUntil(
+    self.registration.showNotification(d.title, buildOpts(d))
+      .then(() => {
+        broadcast({ type: 'PUSH_FIRED', data: d });
+        scheduleRepeat(d);
+      })
+  );
+});
+
 function fireAndRepeat(d) {
   self.registration.showNotification(d.title, buildOpts(d));
   scheduleRepeat(d);
@@ -45,7 +56,7 @@ function scheduleRepeat(d) {
   repeats[d.id] = setTimeout(() => {
     delete repeats[d.id];
     self.registration.showNotification('⏰ ' + d.title, buildOpts(d, 'Still waiting—tap to dismiss.'));
-    scheduleRepeat(d); // recurse every 5 min
+    scheduleRepeat(d);
   }, 5 * 60 * 1000);
 }
 
@@ -53,13 +64,10 @@ function stopRepeat(id) {
   if (repeats[id]) { clearTimeout(repeats[id]); delete repeats[id]; }
 }
 
-/* ── Message from page ── */
 self.addEventListener('message', e => {
   if (!e.data) return;
   const m = e.data;
-  if (m.type === 'SHOW') {
-    fireAndRepeat(m.data);
-  }
+  if (m.type === 'SHOW') fireAndRepeat(m.data);
   if (m.type === 'SCHEDULE') {
     if (scheduled[m.id]) clearTimeout(scheduled[m.id]);
     scheduled[m.id] = setTimeout(() => {
@@ -73,14 +81,12 @@ self.addEventListener('message', e => {
   }
 });
 
-/* ── Notification click / action ── */
 self.addEventListener('notificationclick', e => {
   const d = e.notification.data || {};
   e.notification.close();
   stopRepeat(d.id);
 
   if (e.action === 'snooze') {
-    // Reschedule in 5 min, then repeat again from there
     if (scheduled[d.id]) clearTimeout(scheduled[d.id]);
     scheduled[d.id] = setTimeout(() => {
       delete scheduled[d.id];
@@ -89,13 +95,10 @@ self.addEventListener('notificationclick', e => {
     broadcast({ type: 'SNOOZED', id: d.id });
     return;
   }
-
   if (e.action === 'dismiss') {
     broadcast({ type: 'DISMISSED', id: d.id });
     return;
   }
-
-  // Body tap — open app
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       const win = list.find(c => 'focus' in c);
