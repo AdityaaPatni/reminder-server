@@ -1,4 +1,4 @@
-const CACHE = 'reminders-v5';
+const CACHE = 'reminders-v6';
 const FILES = ['./', './index.html', './manifest.json', './icon.svg'];
 const scheduled = {};
 const repeats = {};
@@ -33,7 +33,6 @@ function buildOpts(d, bodyOverride) {
   };
 }
 
-// Handle push from server — fires even when app is killed
 self.addEventListener('push', e => {
   if (!e.data) return;
   const d = e.data.json();
