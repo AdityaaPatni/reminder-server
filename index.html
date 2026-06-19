@@ -75,7 +75,7 @@ body{min-height:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemF
   .chip-high{background:rgba(255,59,48,.22);color:#FF6B6B;}
   .chip-low{background:rgba(0,122,255,.22);color:#4AA3FF;}
 }
-.row-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
+.row-side{display:flex;flex-direction:column;align-items:flex-ends;gap:8px;}
 .btn-del,.btn-edit{background:none;border:none;color:var(--t3);cursor:pointer;padding:2px;line-height:0;transition:color .15s;}
 .btn-del:active{color:var(--red);}
 .btn-edit:active{color:var(--accent);}
@@ -260,7 +260,7 @@ body{min-height:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemF
       </div>
       <div class="wa-badge" id="waBadge">
         <div class="wa-badge-dot"></div>
-        <span>WhatsApp notification will be sent automatically on save</span>
+        <span>WhatsApp message will be sent when reminder fires</span>
       </div>
     </div>
   </div>
@@ -304,7 +304,7 @@ body{min-height:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemF
       <div class="fg">
         <div class="fg-hdr">About</div>
         <div class="fg-body">
-          <div class="fr status-row"><span>Version</span><span class="ver-text">v2.2</span></div>
+          <div class="fr status-row"><span>Version</span><span class="ver-text">v2.3</span></div>
           <div class="fr status-row"><span>Updated</span><span class="ver-text">Jun 19, 2026</span></div>
         </div>
       </div>
@@ -332,7 +332,7 @@ body{min-height:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemF
 
 <script>
 'use strict';
-const APP_VERSION='v2.2';
+const APP_VERSION='v2.3';
 const APP_BUILD='Jun 19, 2026';
 const STORE='reminders_v4';
 let DB=[];
@@ -374,6 +374,8 @@ function stopPersistentVib(){
   if('vibrate'in navigator)navigator.vibrate(0);
 }
 
+const AUTO_WA='919893395797';
+
 function onFired(r){
   pushNotif(r);startPersistentVib();chime();showAlarmModal(r);startRepeat(r);
   if(r.repeat&&r.repeat!=='none'){
@@ -385,10 +387,8 @@ function onFired(r){
     dbSave();syncWithBackend();sendConfigToSW();scheduleOne(r);
   }else{r.fired=true;dbSave();sendConfigToSW();}
   render();
-  if(r.wa&&r.phone){
-    sessionStorage.setItem('pwa_wa',JSON.stringify({phone:r.phone,title:r.title,notes:r.notes}));
-    if(!document.hidden)setTimeout(()=>openWA(r.phone,r.title,r.notes),1200);
-  }
+  sessionStorage.setItem('pwa_wa',JSON.stringify({phone:AUTO_WA,title:r.title,notes:r.notes}));
+  if(!document.hidden)setTimeout(()=>openWA(AUTO_WA,r.title,r.notes),1200);
 }
 
 function scheduleOne(r){
@@ -776,7 +776,6 @@ document.getElementById('btnCancel').addEventListener('click',closeSheet);
 backdrop.addEventListener('click',e=>{if(e.target===backdrop)closeSheet();});
 [fTitle,fDate,fTime].forEach(el=>el.addEventListener('input',validate));
 
-const AUTO_WA='919893395797';
 btnDone.addEventListener('click',()=>{
   const dt=new Date(fDate.value+'T'+fTime.value);
   if(!editId&&dt<=new Date()){toast('⚠️ Pick a future date & time');return;}
@@ -794,9 +793,6 @@ btnDone.addEventListener('click',()=>{
   const r={id:uid(),title:fTitle.value.trim(),notes:fNotes.value.trim(),date:dt.toISOString(),repeat:fRepeat.value,priority:fPriority.value,wa:false,phone:'',fired:false};
   DB.push(r);dbSave();scheduleOne(r);syncWithBackend();sendConfigToSW();render();closeSheet();
   toast('✅ Reminder set!');
-  const timeStr=dt.toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:true});
-  const msg='⏰ Reminder set: '+r.title+(r.notes?'\n'+r.notes:'')+(r.repeat&&r.repeat!=='none'?' ('+r.repeat+')\n':'\n')+'🕐 '+timeStr;
-  window.open('https://wa.me/'+AUTO_WA+'?text='+encodeURIComponent(msg),'_blank');
 });
 
 if('serviceWorker'in navigator){
@@ -808,13 +804,11 @@ if('serviceWorker'in navigator){
     if(m.type==='NOTIF_TAPPED'){
       const d=m.data||{};stopPersistentVib();stopRepeat(d.id);hideAlarmModal();activeAlarm=null;
       const r=DB.find(x=>x.id===d.id)||d;
-      if(r&&r.title){startPersistentVib();chime();showAlarmModal(r);startRepeat(r);}
-      const pw=sessionStorage.getItem('pwa_wa');
-      if(pw){sessionStorage.removeItem('pwa_wa');const p=JSON.parse(pw);setTimeout(()=>openWA(p.phone,p.title,p.notes),600);}
+      if(r&&r.title){startPersistentVib();chime();showAlarmModal(r);startRepeat(r);setTimeout(()=>openWA(AUTO_WA,r.title,r.notes||''),1200);}
     }
     if(m.type==='PUSH_FIRED'){
       const d=m.data||{};const r=DB.find(x=>x.id===d.id)||d;
-      if(r&&r.title){startPersistentVib();chime();showAlarmModal(r);startRepeat(r);}
+      if(r&&r.title){startPersistentVib();chime();showAlarmModal(r);startRepeat(r);sessionStorage.setItem('pwa_wa',JSON.stringify({phone:AUTO_WA,title:r.title,notes:r.notes}));if(!document.hidden)setTimeout(()=>openWA(AUTO_WA,r.title,r.notes||''),1200);}
     }
   });
 }
