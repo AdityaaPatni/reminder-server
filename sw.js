@@ -1,4 +1,4 @@
-const CACHE = 'reminders-v9';
+const CACHE = 'reminders-v10';
 const FILES = ['./', './index.html', './manifest.json', './icon-v2.svg'];
 const scheduled = {};
 const repeats = {};
@@ -22,13 +22,16 @@ function buildOpts(d, bodyOverride) {
   return {
     body: bodyOverride || d.body || 'Time for your reminder!',
     requireInteraction: true,
-    vibrate: [500,100,500,100,500,100,500,100,800,200,800,200,800],
+    vibrate: [400,100,400,100,400,100,400,100,400,100,400,100,400,100,400,100,
+              600,150,600,150,600,150,600,150,
+              1000,200,1000,200,1000,200,1000,200,1000],
     tag: d.id,
     renotify: true,
     data: d,
     actions: [
-      { action: 'snooze',  title: '\u{1F4A4} Snooze 5 min' },
-      { action: 'dismiss', title: '✕ Dismiss' }
+      { action: 'snooze5',  title: '\u{1F4A4} 5m' },
+      { action: 'snooze15', title: '\u{1F4A4} 15m' },
+      { action: 'dismiss',  title: '✕ Done' }
     ]
   };
 }
@@ -63,9 +66,9 @@ function scheduleRepeat(d) {
   stopRepeat(d.id);
   repeats[d.id] = setTimeout(() => {
     delete repeats[d.id];
-    self.registration.showNotification('⏰ ' + d.title, buildOpts(d, 'Still waiting—tap to dismiss.'));
+    self.registration.showNotification('⏰ ' + d.title, buildOpts(d, 'Still waiting — tap to open.'));
     scheduleRepeat(d);
-  }, 5 * 60 * 1000);
+  }, 2 * 60 * 1000);
 }
 
 function stopRepeat(id) {
@@ -104,16 +107,18 @@ self.addEventListener('notificationclick', e => {
   e.notification.close();
   stopRepeat(d.id);
 
-  if (e.action === 'snooze') {
-    broadcast({ type: 'SNOOZED', id: d.id });
+  if (e.action === 'snooze5' || e.action === 'snooze15' || e.action === 'snooze') {
+    const snoozeMin = e.action === 'snooze15' ? 15 : 5;
+    const snoozeMs = snoozeMin * 60 * 1000;
+    broadcast({ type: 'SNOOZED', id: d.id, minutes: snoozeMin });
     e.waitUntil(
       getConfig().then(cfg => {
         if (!cfg.backendUrl || !cfg.userId) {
-          scheduled[d.id] = setTimeout(() => { delete scheduled[d.id]; fireAndRepeat(d); }, 5 * 60 * 1000);
+          scheduled[d.id] = setTimeout(() => { delete scheduled[d.id]; fireAndRepeat(d); }, snoozeMs);
           return;
         }
         const now = Date.now();
-        const snoozeDate = new Date(now + 5 * 60 * 1000).toISOString();
+        const snoozeDate = new Date(now + snoozeMs).toISOString();
         let reminders = (cfg.reminders || []).map(r =>
           r.id === d.id ? { ...r, date: snoozeDate, fired: false } : r
         );
@@ -129,7 +134,7 @@ self.addEventListener('notificationclick', e => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: cfg.userId, reminders: pending })
         }).catch(() => {
-          scheduled[d.id] = setTimeout(() => { delete scheduled[d.id]; fireAndRepeat(d); }, 5 * 60 * 1000);
+          scheduled[d.id] = setTimeout(() => { delete scheduled[d.id]; fireAndRepeat(d); }, snoozeMs);
         });
       })
     );
