@@ -1,4 +1,4 @@
-const CACHE = 'reminders-v7';
+const CACHE = 'reminders-v8';
 const FILES = ['./', './index.html', './manifest.json', './icon-v2.svg'];
 const scheduled = {};
 const repeats = {};
@@ -10,7 +10,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== 'sw-config').map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -22,7 +22,7 @@ function buildOpts(d, bodyOverride) {
   return {
     body: bodyOverride || d.body || 'Time for your reminder!',
     requireInteraction: true,
-    vibrate: [400, 150, 400, 150, 400, 150, 600],
+    vibrate: [500,100,500,100,500,100,500,100,800,200,800,200,800],
     tag: d.id,
     renotify: true,
     data: d,
@@ -31,6 +31,15 @@ function buildOpts(d, bodyOverride) {
       { action: 'dismiss', title: '✕ Dismiss' }
     ]
   };
+}
+
+async function getConfig() {
+  try {
+    const c = await caches.open('sw-config');
+    const r = await c.match('/sw-config');
+    if (r) return r.json();
+  } catch {}
+  return {};
 }
 
 self.addEventListener('push', e => {
@@ -66,6 +75,16 @@ function stopRepeat(id) {
 self.addEventListener('message', e => {
   if (!e.data) return;
   const m = e.data;
+  if (m.type === 'SET_CONFIG') {
+    caches.open('sw-config').then(c =>
+      c.put('/sw-config', new Response(JSON.stringify({
+        backendUrl: m.backendUrl,
+        userId: m.userId,
+        reminders: m.reminders || []
+      })))
+    );
+    return;
+  }
   if (m.type === 'SHOW') fireAndRepeat(m.data);
   if (m.type === 'SCHEDULE') {
     if (scheduled[m.id]) clearTimeout(scheduled[m.id]);
@@ -84,16 +103,44 @@ self.addEventListener('notificationclick', e => {
   const d = e.notification.data || {};
   e.notification.close();
   stopRepeat(d.id);
+
   if (e.action === 'snooze') {
-    if (scheduled[d.id]) clearTimeout(scheduled[d.id]);
-    scheduled[d.id] = setTimeout(() => { delete scheduled[d.id]; fireAndRepeat(d); }, 5 * 60 * 1000);
     broadcast({ type: 'SNOOZED', id: d.id });
+    e.waitUntil(
+      getConfig().then(cfg => {
+        if (!cfg.backendUrl || !cfg.userId) {
+          scheduled[d.id] = setTimeout(() => { delete scheduled[d.id]; fireAndRepeat(d); }, 5 * 60 * 1000);
+          return;
+        }
+        const now = Date.now();
+        const snoozeDate = new Date(now + 5 * 60 * 1000).toISOString();
+        let reminders = (cfg.reminders || []).map(r =>
+          r.id === d.id ? { ...r, date: snoozeDate, fired: false } : r
+        );
+        if (!reminders.find(r => r.id === d.id)) {
+          reminders.push({ ...d, date: snoozeDate, fired: false });
+        }
+        const pending = reminders.filter(r => {
+          if (r.fired && (!r.repeat || r.repeat === 'none')) return false;
+          return new Date(r.date).getTime() > now - 60000;
+        });
+        return fetch(cfg.backendUrl + '/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: cfg.userId, reminders: pending })
+        }).catch(() => {
+          scheduled[d.id] = setTimeout(() => { delete scheduled[d.id]; fireAndRepeat(d); }, 5 * 60 * 1000);
+        });
+      })
+    );
     return;
   }
+
   if (e.action === 'dismiss') {
     broadcast({ type: 'DISMISSED', id: d.id });
     return;
   }
+
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       const win = list.find(c => 'focus' in c);

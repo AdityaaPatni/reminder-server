@@ -339,6 +339,13 @@ function uid(){return crypto.randomUUID?crypto.randomUUID():Date.now().toString(
 function permOK(){return'Notification'in window&&Notification.permission==='granted';}
 async function askPerm(){if(!('Notification'in window))return false;return(await Notification.requestPermission())==='granted';}
 
+let _audioCtx = null;
+function getAudioCtx(){
+  if(!_audioCtx)_audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  return _audioCtx;
+}
+document.addEventListener('touchstart',()=>{try{const c=getAudioCtx();if(c.state==='suspended')c.resume();}catch{}},{passive:true});
+
 function pushNotif(r){
   if(!permOK())return;
   const d={id:r.id,title:r.title,body:r.notes||'Time for your reminder!',wa:r.wa,phone:r.phone};
@@ -347,9 +354,12 @@ function pushNotif(r){
   else new Notification(r.title,{body:d.body,requireInteraction:true,tag:r.id,renotify:true});
 }
 
+const BLAST=[500,100,500,100,500,100,500,100,800,200,800,200,800];
+function vibBlast(){if('vibrate'in navigator)navigator.vibrate(BLAST);}
+
 function onFired(r){
   pushNotif(r);
-  if('vibrate'in navigator)navigator.vibrate([400,150,400,150,400,150,600]);
+  vibBlast();
   chime();
   showAlarmModal(r);
   startRepeat(r);
@@ -359,9 +369,9 @@ function onFired(r){
     else if(r.repeat==='weekly')nd.setDate(nd.getDate()+7);
     else if(r.repeat==='monthly')nd.setMonth(nd.getMonth()+1);
     r.date=nd.toISOString();r.fired=false;
-    dbSave();syncWithBackend();scheduleOne(r);
+    dbSave();syncWithBackend();sendConfigToSW();scheduleOne(r);
   }else{
-    r.fired=true;dbSave();
+    r.fired=true;dbSave();sendConfigToSW();
   }
   render();
   if(r.wa&&r.phone){
@@ -378,12 +388,12 @@ function scheduleOne(r){
   navigator.serviceWorker?.controller?.postMessage(
     {type:'SCHEDULE',id:r.id,title:r.title,body:r.notes||'Time for your reminder!',delay:ms,wa:r.wa,phone:r.phone});
 }
-function scheduleAll(){DB.forEach(r=>{if(!r.fired&&new Date(r.date)>new Date())scheduleOne(r);});}
+function scheduleAll(){DB.forEach(r=>{if(!r.fired&&new Date(r.date)>new Date())scheduleOne(r);}); }
 
 function startRepeat(r){
   stopRepeat(r.id);
   REPEATS[r.id]=setInterval(()=>{
-    if('vibrate'in navigator)navigator.vibrate([400,150,400,150,400,150,600]);
+    vibBlast();
     chime();
     if(!activeAlarm)showAlarmModal(r);
   },5*60*1000);
@@ -409,6 +419,8 @@ window.snoozeActive=function(){
   navigator.serviceWorker?.ready?.then(reg=>reg.getNotifications({tag:r.id}).then(ns=>ns.forEach(n=>n.close())));
   const snoozeMs=5*60*1000;
   TIMERS[r.id]=setTimeout(()=>{delete TIMERS[r.id];onFired(r);},snoozeMs);
+  const bu=getBackendUrl();
+  if(bu)fetch(bu+'/snooze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:r.id,minutes:5})}).catch(()=>{});
   navigator.serviceWorker?.controller?.postMessage(
     {type:'SCHEDULE',id:r.id,title:r.title,body:r.notes||'Snoozed reminder!',delay:snoozeMs,wa:r.wa,phone:r.phone});
   activeAlarm=null;toast('💤 Snoozed for 5 minutes');
@@ -423,22 +435,26 @@ window.dismissActive=function(){
   activeAlarm=null;toast('Reminder dismissed');
 };
 
+function playNotes(ctx){
+  [[1318.5,0,.18],[1174.7,.22,.14],[1046.5,.36,.14],[1318.5,.50,.28],[1046.5,.82,.18],[1318.5,1.0,.32]].forEach(([f,s,d])=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type='sine';o.frequency.value=f;
+    const t=ctx.currentTime+s;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(0.7,t+.025);
+    g.gain.exponentialRampToValueAtTime(.001,t+d);
+    o.start(t);o.stop(t+d+.05);
+  });
+}
 function chime(){
   try{
-    const ctx=new(window.AudioContext||window.webkitAudioContext)();
-    [[1318.5,0,.13],[1174.7,.18,.1],[1046.5,.29,.1],[1318.5,.38,.2]].forEach(([f,s,d])=>{
-      const o=ctx.createOscillator(),g=ctx.createGain();
-      o.connect(g);g.connect(ctx.destination);
-      o.type='sine';o.frequency.value=f;
-      const t=ctx.currentTime+s;
-      g.gain.setValueAtTime(0,t);
-      g.gain.linearRampToValueAtTime(0.42,t+.02);
-      g.gain.exponentialRampToValueAtTime(.001,t+d);
-      o.start(t);o.stop(t+d+.05);
-    });
+    const ctx=getAudioCtx();
+    if(ctx.state==='suspended')ctx.resume().then(()=>playNotes(ctx));
+    else playNotes(ctx);
   }catch(e){}
 }
-window.testVibrate=()=>{if('vibrate'in navigator)navigator.vibrate([300,100,300,100,300]);toast('📳 Vibrating!');};
+window.testVibrate=()=>{vibBlast();toast('📳 Vibrating!');};
 window.testSound=()=>{chime();toast('🔊 Playing chime!');};
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -501,9 +517,9 @@ window.del=id=>{
   navigator.serviceWorker?.controller?.postMessage({type:'CANCEL',id});
   deleteFromBackend(id);
   DB=DB.filter(r=>r.id!==id);
-  dbSave();render();toast('Deleted');
+  dbSave();sendConfigToSW();render();toast('Deleted');
 };
-window.toggleDone=id=>{const r=DB.find(x=>x.id===id);if(!r)return;r.fired=!r.fired;dbSave();render();};
+window.toggleDone=id=>{const r=DB.find(x=>x.id===id);if(!r)return;r.fired=!r.fired;dbSave();sendConfigToSW();render();};
 window.waBtn=id=>{const r=DB.find(x=>x.id===id);if(!r)return;openWA(r.phone,r.title,r.notes);};
 function openWA(phone,title,notes){
   const n=phone.replace(/\D/g,'');
@@ -528,6 +544,14 @@ function b64ToUint8(b64){
   const s=(b64+p).replace(/-/g,'+').replace(/_/g,'/');
   return Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 }
+function sendConfigToSW(){
+  const url=getBackendUrl();
+  if(!url)return;
+  navigator.serviceWorker?.ready?.then(reg=>reg.active?.postMessage({
+    type:'SET_CONFIG',backendUrl:url,userId:getUserId(),reminders:DB
+  }));
+}
+
 async function setupPush(){
   const url=getBackendUrl();
   if(!url||!permOK())return;
@@ -540,6 +564,7 @@ async function setupPush(){
     if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(key)});
     await fetch(url+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:getUserId(),subscription:sub.toJSON()})});
     await syncWithBackend();
+    sendConfigToSW();
     document.getElementById('statusDot').classList.add('ok');
     setStatusBadge('pushStatus','Connected ✓','ok');
   }catch(e){
@@ -608,7 +633,7 @@ function renderHintBar(){
   if(!iOS||standalone)return;
   document.getElementById('hintBar').innerHTML=
     '<div class="hint-bar" style="margin-top:10px"><span style="font-size:26px">&#128242;</span>'+
-    '<div class="hint-bar-body"><strong>Install on Home Screen</strong><span>Tap Share &#x2B06; → “Add to Home Screen” so alerts work in background</span></div>'+
+    '<div class="hint-bar-body"><strong>Install on Home Screen</strong><span>Tap Share &#x2B06; → "Add to Home Screen" so alerts work in background</span></div>'+
     '<button class="hint-close" onclick="localStorage.setItem(\'hint3\',\'1\');this.closest(\'.hint-bar\').remove()">✕</button></div>';
 }
 function renderBackendBar(){
@@ -620,7 +645,7 @@ function renderBackendBar(){
     '<button onclick="openSettings()">Set Up Free Server →</button>'+
     '</div>'+
     '<button class="hint-close" style="background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer;flex-shrink:0;" '+
-    'onclick="localStorage.setItem(\'noBackendBar\',\'1\');document.getElementById(\'backendBar\').innerHTML=\'\'">'+'✕</button>'+
+    'onclick="localStorage.setItem(\'noBackendBar\',\'1\');document.getElementById(\'backendBar\').innerHTML=\'\'">✕</button>'+
     '</div>';
 }
 
@@ -658,12 +683,16 @@ document.getElementById('btnCancel').addEventListener('click',closeSheet);
 backdrop.addEventListener('click',e=>{if(e.target===backdrop)closeSheet();});
 [fTitle,fDate,fTime].forEach(el=>el.addEventListener('input',validate));
 fWa.addEventListener('change',()=>{waSub.classList.toggle('on',fWa.checked);waTip.style.display=fWa.checked?'block':'none';});
+const AUTO_WA='919893395797';
 btnDone.addEventListener('click',()=>{
   const dt=new Date(fDate.value+'T'+fTime.value);
   if(dt<=new Date()){toast('⚠️ Pick a future date & time');return;}
-  const r={id:uid(),title:fTitle.value.trim(),notes:fNotes.value.trim(),date:dt.toISOString(),repeat:fRepeat.value,wa:fWa.checked,phone:fPhone.value.trim(),fired:false};
-  DB.push(r);dbSave();scheduleOne(r);syncWithBackend();render();closeSheet();
+  const r={id:uid(),title:fTitle.value.trim(),notes:fNotes.value.trim(),date:dt.toISOString(),repeat:fRepeat.value,wa:false,phone:'',fired:false};
+  DB.push(r);dbSave();scheduleOne(r);syncWithBackend();sendConfigToSW();render();closeSheet();
   toast('✅ Reminder set!');
+  const timeStr=dt.toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:true});
+  const msg='⏰ Reminder set: '+r.title+(r.notes?'\n'+r.notes:'')+(r.repeat&&r.repeat!=='none'?' ('+r.repeat+')\n':'\n')+'🕐 '+timeStr;
+  window.open('https://wa.me/'+AUTO_WA+'?text='+encodeURIComponent(msg),'_blank');
 });
 
 if('serviceWorker'in navigator){
@@ -685,8 +714,7 @@ if('serviceWorker'in navigator){
       const d=m.data||{};
       const r=DB.find(x=>x.id===d.id)||d;
       if(r&&r.title){
-        if('vibrate'in navigator)navigator.vibrate([400,150,400,150,400,150,600]);
-        chime();showAlarmModal(r);startRepeat(r);
+        vibBlast();chime();showAlarmModal(r);startRepeat(r);
       }
     }
   });
@@ -699,7 +727,7 @@ document.addEventListener('visibilitychange',()=>{
   }
 });
 
-dbLoad();renderPermBar();renderHintBar();renderBackendBar();render();scheduleAll();setupPush();
+dbLoad();renderPermBar();renderHintBar();renderBackendBar();render();scheduleAll();setupPush();sendConfigToSW();
 </script>
 </body>
 </html>
