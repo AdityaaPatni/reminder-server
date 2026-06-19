@@ -1,5 +1,5 @@
-const CACHE = 'reminders-v6';
-const FILES = ['./', './index.html', './manifest.json', './icon.svg'];
+const CACHE = 'reminders-v7';
+const FILES = ['./', './index.html', './manifest.json', './icon-v2.svg'];
 const scheduled = {};
 const repeats = {};
 
@@ -84,13 +84,9 @@ self.addEventListener('notificationclick', e => {
   const d = e.notification.data || {};
   e.notification.close();
   stopRepeat(d.id);
-
   if (e.action === 'snooze') {
     if (scheduled[d.id]) clearTimeout(scheduled[d.id]);
-    scheduled[d.id] = setTimeout(() => {
-      delete scheduled[d.id];
-      fireAndRepeat(d);
-    }, 5 * 60 * 1000);
+    scheduled[d.id] = setTimeout(() => { delete scheduled[d.id]; fireAndRepeat(d); }, 5 * 60 * 1000);
     broadcast({ type: 'SNOOZED', id: d.id });
     return;
   }

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Dark rounded square background -->
+  <rect width="100" height="100" rx="22" fill="#1C1C1E"/>
+
+  <!-- Row 1: checked circle -->
+  <circle cx="23" cy="30" r="9.5" stroke="white" stroke-width="2.2" fill="none"/>
+  <path d="M17 30 L21.5 34.5 L30 24" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Line -->
+  <rect x="38" y="26" width="47" height="8" rx="4" fill="white"/>
+
+  <!-- Row 2: empty circle -->
+  <circle cx="23" cy="52" r="9.5" stroke="white" stroke-width="2.2" fill="none"/>
+  <!-- Line -->
+  <rect x="38" y="48" width="47" height="8" rx="4" fill="white"/>
+
+  <!-- Row 3: empty circle -->
+  <circle cx="23" cy="74" r="9.5" stroke="white" stroke-width="2.2" fill="none"/>
+  <!-- Line -->
+  <rect x="38" y="70" width="47" height="8" rx="4" fill="white"/>
+</svg>
