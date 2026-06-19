@@ -1,27 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFB340"/>
-      <stop offset="100%" stop-color="#FF6A00"/>
-    </linearGradient>
-    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="rgba(255,255,255,0.22)"/>
-      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFB0BF"/>
+      <stop offset="100%" stop-color="#FF2D6E"/>
     </linearGradient>
   </defs>
-  <!-- squircle bg -->
-  <rect width="100" height="100" rx="22" fill="url(#bg)"/>
-  <!-- top shine -->
-  <rect width="100" height="55" rx="22" fill="url(#shine)"/>
-  <!-- bell handle -->
-  <path d="M44 18 Q44 10 50 10 Q56 10 56 18" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>
-  <!-- bell dome + sides -->
-  <path d="M50 18 C36 18 25 28 25 44 L22 63 Q20 67 18 69 L82 69 Q80 67 78 63 L75 44 C75 28 64 18 50 18 Z" fill="white"/>
-  <!-- bell base yoke -->
-  <rect x="36" y="69" width="28" height="7" rx="3.5" fill="white"/>
-  <!-- clapper -->
-  <circle cx="50" cy="83" r="5.5" fill="white"/>
-  <!-- red badge -->
-  <circle cx="75" cy="25" r="14" fill="#FF3B30"/>
-  <text x="75" y="30.5" text-anchor="middle" font-family="-apple-system,Helvetica Neue,sans-serif" font-size="15" font-weight="900" fill="white">!</text>
+
+  <!-- Bell handle -->
+  <rect x="44" y="4" width="12" height="12" rx="6" fill="url(#g)"/>
+
+  <!-- Bell dome -->
+  <path d="M50 13 C32 13 20 27 20 47 L16 71 L84 71 L80 47 C80 27 68 13 50 13Z" fill="url(#g)"/>
+
+  <!-- Horizontal bar -->
+  <rect x="10" y="69" width="80" height="9" rx="4.5" fill="url(#g)"/>
+
+  <!-- Clapper -->
+  <circle cx="50" cy="84" r="6" fill="url(#g)"/>
+
+  <!-- Clock badge: white ring -->
+  <circle cx="71" cy="27" r="20" fill="white"/>
+
+  <!-- Clock badge: gradient face -->
+  <circle cx="71" cy="27" r="16" fill="url(#g)"/>
+
+  <!-- Clock hands (white) -->
+  <line x1="71" y1="27" x2="71" y2="15" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <line x1="71" y1="27" x2="81" y2="27" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="71" cy="27" r="2.5" fill="white"/>
 </svg>
