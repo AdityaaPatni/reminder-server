@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Loud Reminder</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Reminder" />
+  <meta name="theme-color" content="#FF6B00" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    :root{
+      --orange:#FF6B00;--orange-dk:#D45800;
+      --green:#25D366;--green-dk:#1DA855;
+      --bg:#F2F2F7;--card:#FFFFFF;
+      --text:#1C1C1E;--secondary:#8E8E93;
+      --border:#E5E5EA;--danger:#FF3B30;
+    }
+    html,body{height:100%;}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      background:var(--bg);color:var(--text);
+      min-height:100vh;min-height:100dvh;
+    }
+
+    /* HEADER */
+    .header{
+      position:sticky;top:0;z-index:100;
+      background:rgba(242,242,247,0.93);
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      padding:max(env(safe-area-inset-top),16px) 20px 14px;
+      display:flex;align-items:center;justify-content:space-between;
+      border-bottom:1px solid var(--border);
+    }
+    .header h1{font-size:26px;font-weight:700;letter-spacing:-0.3px;}
+    .btn-add{
+      width:38px;height:38px;background:var(--orange);
+      border:none;border-radius:50%;color:#fff;
+      font-size:24px;line-height:1;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 2px 10px rgba(255,107,0,.45);
+      transition:transform .1s;
+    }
+    .btn-add:active{transform:scale(.9);}
+
+    /* CONTENT */
+    .content{
+      padding:14px 16px;
+      padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px);
+    }
+
+    /* EMPTY */
+    .empty{text-align:center;padding:70px 36px;}
+    .empty-icon{font-size:72px;margin-bottom:16px;}
+    .empty h2{font-size:20px;font-weight:600;margin-bottom:8px;}
+    .empty p{color:var(--secondary);font-size:15px;line-height:1.55;}
+
+    /* CARD */
+    .card{
+      background:var(--card);border-radius:16px;
+      padding:16px;margin-bottom:12px;
+      box-shadow:0 1px 5px rgba(0,0,0,.07);
+      animation:fadeUp .25s ease;
+    }
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .card-top{display:flex;justify-content:space-between;align-items:flex-start;}
+    .card-title{font-size:17px;font-weight:600;flex:1;margin-right:10px;line-height:1.3;}
+    .card-desc{color:var(--secondary);font-size:14px;margin-top:4px;line-height:1.4;}
+    .card-time{
+      display:flex;align-items:center;gap:5px;
+      color:var(--orange);font-size:13px;font-weight:500;margin-top:8px;
+    }
+    .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+    .badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
+    .badge-alert{background:#FFF0E6;color:var(--orange);}
+    .badge-wa{background:#E7F9F0;color:#1A7A45;}
+    .badge-done{background:#F0F0F5;color:var(--secondary);}
+    .btn-wa{
+      margin-top:12px;width:100%;padding:11px;
+      background:var(--green);color:#fff;
+      border:none;border-radius:12px;
+      font-size:14px;font-weight:700;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:6px;
+      box-shadow:0 2px 8px rgba(37,211,102,.3);
+      transition:opacity .1s;
+    }
+    .btn-wa:active{opacity:.82;}
+    .btn-del{
+      background:none;border:none;color:var(--secondary);
+      font-size:19px;cursor:pointer;padding:2px 4px;line-height:1;
+      flex-shrink:0;
+    }
+
+    /* PERMISSION BANNER */
+    .banner{
+      background:#FFF3E0;border-left:4px solid var(--orange);
+      border-radius:12px;padding:14px 16px;margin-bottom:14px;
+      display:flex;align-items:center;gap:12px;
+    }
+    .banner-txt{flex:1;font-size:14px;line-height:1.45;}
+    .banner-btn{
+      background:var(--orange);color:#fff;
+      border:none;border-radius:8px;padding:7px 13px;
+      font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;
+    }
+
+    /* INSTALL HINT */
+    .hint{
+      background:var(--card);border-radius:14px;
+      padding:14px 16px;margin-bottom:14px;
+      display:flex;gap:12px;align-items:flex-start;
+      box-shadow:0 1px 5px rgba(0,0,0,.07);
+    }
+    .hint-ico{font-size:28px;flex-shrink:0;}
+    .hint-txt{font-size:14px;line-height:1.5;}
+    .hint-txt strong{display:block;margin-bottom:3px;}
+    .hint-close{
+      margin-left:auto;background:none;border:none;
+      color:var(--secondary);font-size:18px;cursor:pointer;
+      padding:0 0 0 8px;flex-shrink:0;
+    }
+
+    /* BOTTOM SHEET */
+    .overlay{
+      position:fixed;inset:0;z-index:200;
+      background:rgba(0,0,0,.52);
+      display:none;align-items:flex-end;
+    }
+    .overlay.open{display:flex;}
+    .overlay.open .sheet{animation:slideUp .32s cubic-bezier(.32,.72,0,1);}
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:none}}
+    .sheet{
+      background:#fff;width:100%;
+      border-radius:22px 22px 0 0;
+      max-height:93dvh;overflow-y:auto;
+      padding-bottom:max(env(safe-area-inset-bottom),20px);
+    }
+    .drag-handle{
+      width:40px;height:4px;background:var(--border);
+      border-radius:2px;margin:12px auto 0;
+    }
+    .sheet-hdr{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px 20px 4px;
+    }
+    .sheet-title{font-size:20px;font-weight:700;}
+    .btn-cancel{
+      color:var(--orange);background:none;border:none;
+      font-size:17px;cursor:pointer;padding:4px 0;
+    }
+
+    /* FORM */
+    .form{padding:16px 20px;display:flex;flex-direction:column;gap:14px;}
+    .field label{
+      display:block;font-size:12px;font-weight:700;
+      color:var(--secondary);text-transform:uppercase;
+      letter-spacing:.6px;margin-bottom:7px;
+    }
+    .field input,.field textarea{
+      width:100%;padding:13px 15px;
+      border:1.5px solid var(--border);border-radius:12px;
+      font-size:16px;font-family:inherit;
+      background:var(--bg);color:var(--text);
+      outline:none;transition:border-color .15s;
+      -webkit-appearance:none;
+    }
+    .field input:focus,.field textarea:focus{border-color:var(--orange);}
+    .field textarea{resize:none;height:80px;}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .toggle-row{
+      display:flex;align-items:center;justify-content:space-between;
+      background:var(--bg);padding:13px 15px;border-radius:12px;
+    }
+    .toggle-lbl{font-size:16px;font-weight:500;display:flex;align-items:center;gap:8px;}
+    .toggle{position:relative;width:51px;height:31px;flex-shrink:0;}
+    .toggle input{opacity:0;width:0;height:0;}
+    .slider{
+      position:absolute;inset:0;background:var(--border);
+      border-radius:31px;cursor:pointer;transition:background .2s;
+    }
+    .slider:before{
+      content:'';position:absolute;
+      height:27px;width:27px;left:2px;bottom:2px;
+      background:#fff;border-radius:50%;
+      transition:transform .2s;
+      box-shadow:0 1px 4px rgba(0,0,0,.2);
+    }
+    .toggle input:checked+.slider{background:var(--green);}
+    .toggle input:checked+.slider:before{transform:translateX(20px);}
+    .wa-sec{display:none;}
+    .wa-sec.on{display:block;}
+    .wa-note{
+      background:#E7F9F0;border-radius:10px;
+      padding:12px 14px;font-size:13px;
+      color:#1A7A45;line-height:1.5;margin-top:10px;
+    }
+    .btn-save{
+      width:100%;padding:16px;
+      background:var(--orange);color:#fff;
+      border:none;border-radius:14px;
+      font-size:17px;font-weight:700;cursor:pointer;
+      box-shadow:0 4px 14px rgba(255,107,0,.38);
+      transition:opacity .1s;
+    }
+    .btn-save:disabled{opacity:.38;cursor:not-allowed;box-shadow:none;}
+    .btn-save:not(:disabled):active{opacity:.82;}
+
+    /* TEST ROW */
+    .test-row{
+      display:flex;gap:10px;
+    }
+    .btn-test{
+      flex:1;padding:11px;
+      background:var(--bg);color:var(--orange);
+      border:1.5px solid var(--orange);border-radius:12px;
+      font-size:14px;font-weight:600;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:5px;
+      transition:opacity .1s;
+    }
+    .btn-test:active{opacity:.7;}
+
+    /* TOAST */
+    .toast{
+      position:fixed;
+      bottom:calc(env(safe-area-inset-bottom,0px) + 22px);
+      left:50%;transform:translateX(-50%) translateY(80px);
+      background:#1C1C1E;color:#fff;
+      padding:12px 22px;border-radius:22px;
+      font-size:15px;font-weight:500;
+      transition:transform .3s cubic-bezier(.32,.72,0,1);
+      z-index:999;pointer-events:none;white-space:nowrap;
+    }
+    .toast.show{transform:translateX(-50%) translateY(0);}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔔 Reminders</h1>
+  <button class="btn-add" id="btnAdd" aria-label="Add reminder">+</button>
+</div>
+
+<div class="content" id="content"></div>
+
+<!-- ADD SHEET -->
+<div class="overlay" id="overlay">
+  <div class="sheet" id="sheet">
+    <div class="drag-handle"></div>
+    <div class="sheet-hdr">
+      <span class="sheet-title">New Reminder</span>
+      <button class="btn-cancel" id="btnCancel">Cancel</button>
+    </div>
+    <div class="form">
+      <div class="field">
+        <label>Title *</label>
+        <input id="fTitle" type="text" placeholder="e.g. Take medicine" maxlength="100" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Description (optional)</label>
+        <textarea id="fBody" placeholder="Add a note..."></textarea>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Date</label><input id="fDate" type="date" /></div>
+        <div class="field"><label>Time</label><input id="fTime" type="time" /></div>
+      </div>
+      <div class="test-row">
+        <button class="btn-test" onclick="testVibrate()">📳 Test Vibrate</button>
+        <button class="btn-test" onclick="testSound()">🔊 Test Sound</button>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-lbl">💬 WhatsApp Reminder</span>
+        <label class="toggle"><input type="checkbox" id="fWa" /><span class="slider"></span></label>
+      </div>
+      <div class="wa-sec" id="waSec">
+        <div class="field">
+          <label>WhatsApp Phone Number</label>
+          <input id="fPhone" type="tel" placeholder="+91 98765 43210" />
+        </div>
+        <div class="wa-note">💡 When the alert fires, tap it to open the app, then hit <strong>"Send on WhatsApp"</strong> to open WhatsApp with the message ready.</div>
+      </div>
+      <button class="btn-save" id="btnSave" disabled>Set Reminder 🔔</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const KEY = 'reminders_v2';
+let reminders = [];
+const timers = {};
+
+// --- STORAGE ---
+function load() {
+  try { reminders = JSON.parse(localStorage.getItem(KEY)) || []; }
+  catch { reminders = []; }
+}
+function persist() { localStorage.setItem(KEY, JSON.stringify(reminders)); }
+
+// --- NOTIFICATIONS ---
+function permOK() { return 'Notification' in window && Notification.permission === 'granted'; }
+
+async function askPerm() {
+  if (!('Notification' in window)) return false;
+  return (await Notification.requestPermission()) === 'granted';
+}
+
+function trigger(r) {
+  if (permOK()) {
+    const opts = {
+      body: r.body || 'Time for your reminder!',
+      requireInteraction: true,
+      tag: r.id,
+      renotify: true,
+      vibrate: [400, 150, 400, 150, 400, 150, 600]
+    };
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'SHOW', title: r.title, opts });
+    } else {
+      new Notification(r.title, opts);
+    }
+  }
+  if ('vibrate' in navigator) navigator.vibrate([400,150,400,150,400,150,600]);
+  playSound();
+  r.fired = true; persist(); renderAll();
+}
+
+function schedule(r) {
+  const ms = new Date(r.date).getTime() - Date.now();
+  if (ms <= 0) return;
+  if (timers[r.id]) clearTimeout(timers[r.id]);
+  timers[r.id] = setTimeout(() => { delete timers[r.id]; trigger(r); }, ms);
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SCHEDULE', id: r.id,
+      title: r.title, body: r.body || 'Time for your reminder!', delay: ms
+    });
+  }
+}
+
+function rescheduleAll() {
+  reminders.forEach(r => { if (!r.fired && new Date(r.date) > new Date()) schedule(r); });
+}
+
+// --- AUDIO ---
+function playSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const seq = [[880,.08],[0,.06],[1108,.08],[0,.06],[1318,.1],[0,.06],[1047,.08],[0,.06],[1318,.15]];
+    let t = ctx.currentTime;
+    seq.forEach(([f,d]) => {
+      if (f === 0) { t += d; return; }
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = f;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.5, t + 0.02);
+      g.gain.linearRampToValueAtTime(0, t + d);
+      osc.start(t); osc.stop(t + d + 0.01);
+      t += d + 0.02;
+    });
+  } catch(e) {}
+}
+
+window.testVibrate = () => {
+  if ('vibrate' in navigator) navigator.vibrate([300,100,300,100,300]);
+  showToast('📳 Vibrating...');
+};
+window.testSound = () => { playSound(); showToast('🔊 Playing sound!'); };
+
+// --- RENDER ---
+function fmt(iso) {
+  const d = new Date(iso), now = new Date();
+  const tom = new Date(now); tom.setDate(now.getDate()+1);
+  const t = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:true});
+  if (d.toDateString()===now.toDateString()) return `Today at ${t}`;
+  if (d.toDateString()===tom.toDateString()) return `Tomorrow at ${t}`;
+  return d.toLocaleDateString([],{month:'short',day:'numeric'}) + ` at ${t}`;
+}
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderAll() {
+  const c = document.getElementById('content');
+  // keep banners
+  const keep = [...c.querySelectorAll('.banner,.hint')];
+  c.innerHTML = '';
+  keep.forEach(el => c.appendChild(el));
+
+  if (reminders.length === 0) {
+    c.insertAdjacentHTML('beforeend',
+      `<div class="empty">
+        <div class="empty-icon">🔔</div>
+        <h2>No Reminders Yet</h2>
+        <p>Tap <strong>+</strong> to add a reminder.<br>You'll get a loud alert with vibration at the set time.</p>
+      </div>`);
+    return;
+  }
+  [...reminders].sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(r => {
+    const past = new Date(r.date) < new Date();
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML =
+      `<div class="card-top">
+        <div class="card-title">${esc(r.title)}</div>
+        <button class="btn-del" onclick="del('${r.id}')" aria-label="Delete">✕</button>
+      </div>
+      ${r.body?`<div class="card-desc">${esc(r.body)}</div>`:''}
+      <div class="card-time">📅 ${fmt(r.date)}</div>
+      <div class="badges">
+        <span class="badge badge-alert">🔔 Loud + Vibration</span>
+        ${r.wa?'<span class="badge badge-wa">💬 WhatsApp</span>':''}
+        ${r.fired?'<span class="badge badge-done">✓ Fired</span>':''}
+        ${past&&!r.fired?'<span class="badge badge-done">Missed</span>':''}
+      </div>
+      ${r.wa&&r.phone?`<button class="btn-wa" onclick="sendWa('${r.id}')">💬 Send on WhatsApp Now</button>`:''}`;
+    c.appendChild(div);
+  });
+}
+
+// --- ACTIONS ---
+window.del = id => {
+  if (timers[id]) { clearTimeout(timers[id]); delete timers[id]; }
+  reminders = reminders.filter(r => r.id !== id);
+  persist(); renderAll(); showToast('Reminder deleted');
+};
+
+window.sendWa = id => {
+  const r = reminders.find(x => x.id === id);
+  if (!r) return;
+  const n = r.phone.replace(/\D/g,'');
+  const txt = encodeURIComponent(`⏰ Reminder: ${r.title}${r.body ? '\n' + r.body : ''}`);
+  window.open(`https://wa.me/${n}?text=${txt}`, '_blank');
+};
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+// --- BANNERS ---
+function renderBanners() {
+  const c = document.getElementById('content');
+  c.querySelectorAll('.banner').forEach(e=>e.remove());
+  if (!permOK() && 'Notification' in window) {
+    c.insertAdjacentHTML('afterbegin',
+      `<div class="banner">
+        <span style="font-size:24px">🔔</span>
+        <div class="banner-txt">Allow notifications so reminders can alert you with sound &amp; vibration.</div>
+        <button class="banner-btn" onclick="askPerm().then(ok=>{if(ok){renderBanners();renderAll();showToast('Notifications enabled!');}else{showToast('Permission denied — please allow in Settings');}})">Allow</button>
+      </div>`);
+  }
+}
+
+function showInstallHint() {
+  if (localStorage.getItem('hint_gone')) return;
+  const iOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const standalone = window.matchMedia('(display-mode:standalone)').matches || window.navigator.standalone;
+  if (!iOS || standalone) return;
+  const c = document.getElementById('content');
+  c.insertAdjacentHTML('afterbegin',
+    `<div class="hint">
+      <div class="hint-ico">📲</div>
+      <div class="hint-txt"><strong>Add to Home Screen for best results</strong>Tap the Share button ⬆ → "Add to Home Screen" — then notifications work in the background.</div>
+      <button class="hint-close" onclick="localStorage.setItem('hint_gone','1');this.closest('.hint').remove()">✕</button>
+    </div>`);
+}
+
+// --- FORM ---
+const overlay = document.getElementById('overlay');
+const fTitle = document.getElementById('fTitle');
+const fBody  = document.getElementById('fBody');
+const fDate  = document.getElementById('fDate');
+const fTime  = document.getElementById('fTime');
+const fWa    = document.getElementById('fWa');
+const fPhone = document.getElementById('fPhone');
+const waSec  = document.getElementById('waSec');
+const btnSave= document.getElementById('btnSave');
+
+function openSheet() {
+  const d = new Date(); d.setHours(d.getHours()+1,0,0,0);
+  fDate.value = d.toISOString().split('T')[0];
+  fTime.value = d.toTimeString().slice(0,5);
+  fTitle.value = fBody.value = fPhone.value = '';
+  fWa.checked = false; waSec.classList.remove('on');
+  validate();
+  overlay.classList.add('open');
+  setTimeout(()=>fTitle.focus(),300);
+}
+function closeSheet() { overlay.classList.remove('open'); }
+
+function validate() {
+  btnSave.disabled = !fTitle.value.trim() || !fDate.value || !fTime.value;
+}
+
+document.getElementById('btnAdd').addEventListener('click', async () => {
+  if (!permOK()) {
+    const ok = await askPerm();
+    renderBanners();
+    if (!ok) { showToast('⚠️ Allow notifications first'); return; }
+  }
+  openSheet();
+});
+document.getElementById('btnCancel').addEventListener('click', closeSheet);
+overlay.addEventListener('click', e => { if (e.target===overlay) closeSheet(); });
+[fTitle,fDate,fTime].forEach(el=>el.addEventListener('input',validate));
+fWa.addEventListener('change',()=>waSec.classList.toggle('on',fWa.checked));
+
+btnSave.addEventListener('click', () => {
+  const dt = new Date(fDate.value + 'T' + fTime.value);
+  if (dt <= new Date()) { showToast('⚠️ Pick a future date & time'); return; }
+  const r = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)),
+    title: fTitle.value.trim(),
+    body:  fBody.value.trim(),
+    date:  dt.toISOString(),
+    wa:    fWa.checked,
+    phone: fPhone.value.trim(),
+    fired: false
+  };
+  reminders.push(r); persist(); schedule(r); renderAll(); closeSheet();
+  showToast('✅ Reminder set!');
+});
+
+// --- SERVICE WORKER ---
+if ('serviceWorker' in navigator)
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+// --- INIT ---
+load(); renderBanners(); showInstallHint(); renderAll(); rescheduleAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "Loud Reminder",
+  "short_name": "Reminder",
+  "description": "Set reminders with loud alerts, vibration, and WhatsApp notifications",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FF6B00",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
