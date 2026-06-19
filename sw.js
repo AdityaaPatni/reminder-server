@@ -1,4 +1,4 @@
-const CACHE = 'reminders-v8';
+const CACHE = 'reminders-v9';
 const FILES = ['./', './index.html', './manifest.json', './icon-v2.svg'];
 const scheduled = {};
 const repeats = {};
