@@ -1,4 +1,4 @@
-const CACHE = 'reminders-v11';
+const CACHE = 'reminders-v12';
 const FILES = ['./', './index.html', './manifest.json', './icon-v2.svg'];
 const scheduled = {};
 const repeats = {};
@@ -80,11 +80,20 @@ async function getConfig() {
   return {};
 }
 
+async function sendWA(d) {
+  try {
+    const cfg = await getConfig();
+    if (!cfg.waPhone || !cfg.waApiKey) return;
+    const text = encodeURIComponent('⏰ Reminder: ' + (d.title || '') + (d.body && d.body !== 'Time for your reminder!' ? '\n' + d.body : ''));
+    await fetch('https://api.callmebot.com/whatsapp.php?phone=' + cfg.waPhone + '&text=' + text + '&apikey=' + cfg.waApiKey);
+  } catch {}
+}
+
 self.addEventListener('push', e => {
   if (!e.data) return;
   const d = e.data.json();
   e.waitUntil(
-    restoreSchedules().then(() =>
+    Promise.all([restoreSchedules(), sendWA(d)]).then(() =>
       self.registration.showNotification(d.title, buildOpts(d))
         .then(() => {
           broadcast({ type: 'PUSH_FIRED', data: d });
@@ -95,6 +104,7 @@ self.addEventListener('push', e => {
 });
 
 function fireAndRepeat(d) {
+  sendWA(d);
   self.registration.showNotification(d.title, buildOpts(d));
   scheduleRepeat(d);
 }
@@ -120,7 +130,9 @@ self.addEventListener('message', e => {
       c.put('/sw-config', new Response(JSON.stringify({
         backendUrl: m.backendUrl,
         userId: m.userId,
-        reminders: m.reminders || []
+        reminders: m.reminders || [],
+        waPhone: m.waPhone || '',
+        waApiKey: m.waApiKey || ''
       })))
     );
     return;
