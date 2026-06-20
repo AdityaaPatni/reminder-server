@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a1628">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Penalty Kick!</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    *, *::before, *::after {
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #0a1628;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 400px;
+      max-width: 100vw;
+    }
+
+    #hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 6px 14px 4px;
+      color: #fff;
+      font-family: 'Impact', 'Arial Black', Arial, sans-serif;
+    }
+
+    #score {
+      font-size: 22px;
+      color: #FFD700;
+      letter-spacing: 1px;
+    }
+
+    #kicks-left {
+      font-size: 15px;
+      color: #aabbd4;
+    }
+
+    #best {
+      font-size: 14px;
+      color: #6688aa;
+    }
+
+    canvas {
+      display: block;
+      max-width: 100%;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    #bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 8px 14px;
+      gap: 10px;
+    }
+
+    #hint {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #7799bb;
+      flex: 1;
+    }
+
+    #shoot-btn {
+      font-family: 'Impact', 'Arial Black', Arial, sans-serif;
+      font-size: 20px;
+      letter-spacing: 2px;
+      color: #fff;
+      background: linear-gradient(to bottom, #ff5533, #cc1100);
+      border: none;
+      border-bottom: 4px solid #880800;
+      border-radius: 10px;
+      padding: 12px 28px;
+      cursor: pointer;
+      flex-shrink: 0;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+      transition: transform 0.08s, border-bottom-width 0.08s;
+    }
+
+    #shoot-btn:active {
+      transform: translateY(3px);
+      border-bottom-width: 1px;
+    }
+
+    #shoot-btn:disabled {
+      background: linear-gradient(to bottom, #444, #222);
+      border-bottom-color: #111;
+      color: #666;
+      cursor: default;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrapper">
+    <div id="hud">
+      <div id="score">⚽ 0 / 0</div>
+      <div id="kicks-left">5 kicks left</div>
+      <div id="best">BEST: 0</div>
+    </div>
+    <canvas id="c"></canvas>
+    <div id="bottom">
+      <div id="hint">Tap goal to aim</div>
+      <button id="shoot-btn" disabled>SHOOT!</button>
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
