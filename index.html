@@ -847,6 +847,7 @@ if('serviceWorker'in navigator){
 document.addEventListener('visibilitychange',()=>{});
 
 dbLoad();renderPermBar();renderHintBar();renderBackendBar();render();scheduleAll();setupPush();sendConfigToSW();syncWithBackend();
+// Fire any reminders that fired in the last 10 minutes while app was killed
 (function checkMissed(){
   const now=Date.now();
   DB.forEach(r=>{
