@@ -1,4 +1,4 @@
-const CACHE = 'reminders-v12';
+const CACHE = 'reminders-v13';
 const FILES = ['./', './index.html', './manifest.json', './icon-v2.svg'];
 const scheduled = {};
 const repeats = {};
@@ -198,6 +198,16 @@ self.addEventListener('notificationclick', e => {
 
   if (e.action === 'dismiss') {
     broadcast({ type: 'DISMISSED', id: d.id });
+    e.waitUntil(
+      getConfig().then(cfg => {
+        if (cfg.backendUrl) {
+          return fetch(cfg.backendUrl + '/acknowledge', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: d.id })
+          }).catch(() => {});
+        }
+      })
+    );
     return;
   }
 

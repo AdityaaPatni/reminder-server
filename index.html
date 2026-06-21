@@ -321,8 +321,8 @@ body{min-height:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemF
       <div class="fg">
         <div class="fg-hdr">About</div>
         <div class="fg-body">
-          <div class="fr status-row"><span>Version</span><span class="ver-text">v2.5</span></div>
-          <div class="fr status-row"><span>Updated</span><span class="ver-text">Jun 19, 2026</span></div>
+          <div class="fr status-row"><span>Version</span><span class="ver-text">v2.8</span></div>
+          <div class="fr status-row"><span>Updated</span><span class="ver-text">Jun 21, 2026</span></div>
         </div>
       </div>
     </div>
@@ -350,8 +350,8 @@ body{min-height:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemF
 
 <script>
 'use strict';
-const APP_VERSION='v2.5';
-const APP_BUILD='Jun 19, 2026';
+const APP_VERSION='v2.8';
+const APP_BUILD='Jun 21, 2026';
 const STORE='reminders_v4';
 let DB=[];
 const TIMERS={};
@@ -457,6 +457,8 @@ window.dismissActive=function(){
   stopPersistentVib();stopRepeat(id);hideAlarmModal();
   navigator.serviceWorker?.controller?.postMessage({type:'CANCEL',id});
   navigator.serviceWorker?.ready?.then(reg=>reg.getNotifications({tag:id}).then(ns=>ns.forEach(n=>n.close())));
+  const bu=getBackendUrl();
+  if(bu)fetch(bu+'/acknowledge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}).catch(()=>{});
   activeAlarm=null;toast('Reminder dismissed');
 };
 
@@ -608,6 +610,7 @@ window.toggleDone=id=>{
   r.fired=!r.fired;dbSave();sendConfigToSW();render();
 };
 window.waBtn=id=>{const r=DB.find(x=>x.id===id);if(!r)return;openWA(r.phone,r.title,r.notes);};
+
 function openWA(phone,title,notes){
   const n=phone.replace(/\D/g,'');
   window.open('https://wa.me/'+n+'?text='+encodeURIComponent('⏰ Reminder: '+title+(notes?'\n'+notes:'')),'_blank');
