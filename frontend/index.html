@@ -3,127 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#0a1628">
+  <meta name="theme-color" content="#050d1a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Penalty Kick!</title>
+  <title>Penalty Kings ⚽</title>
   <link rel="manifest" href="manifest.json">
   <style>
-    *, *::before, *::after {
-      margin: 0; padding: 0; box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    :root{--gold:#FFD700;--red:#FF3322;--dark:#050d1a;--accent:#1e4488}
+    html,body{width:100%;height:100%;background:var(--dark);display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:'Impact','Arial Black',Arial,sans-serif;user-select:none}
 
-    html, body {
-      width: 100%; height: 100%;
-      background: #0a1628;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      user-select: none;
-    }
+    .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;transform:scale(.97)}
+    .screen.active{opacity:1;pointer-events:all;transform:scale(1)}
 
-    #wrapper {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 400px;
-      max-width: 100vw;
-    }
+    /* MENU */
+    #s-menu{background:radial-gradient(ellipse at 50% 30%,#1a3a6e 0%,var(--dark) 68%)}
+    .logo{font-size:46px;color:var(--gold);letter-spacing:2px;text-shadow:0 0 30px rgba(255,215,0,.55),0 3px 0 #000;animation:glow 2.5s ease-in-out infinite}
+    @keyframes glow{0%,100%{text-shadow:0 0 20px rgba(255,215,0,.4),0 3px 0 #000}50%{text-shadow:0 0 48px rgba(255,215,0,.9),0 3px 0 #000}}
+    .sub{font-family:Arial,sans-serif;font-size:13px;color:#5577aa;letter-spacing:3px;text-transform:uppercase;margin:6px 0 30px}
+    .mbtn{width:260px;padding:15px 0;margin:6px;font-family:'Impact','Arial Black',Arial,sans-serif;font-size:19px;letter-spacing:3px;border:none;border-radius:12px;cursor:pointer;transition:transform .08s}
+    .mbtn:active{transform:scale(.95)}
+    .p{background:linear-gradient(180deg,#FFD700,#FF8800);color:#111;border-bottom:4px solid #aa5500}
+    .s{background:linear-gradient(180deg,#1e4488,#0d2244);color:#fff;border:2px solid #2255aa;border-bottom:4px solid #0a1628}
+    .d{background:linear-gradient(180deg,#ff4433,#cc1100);color:#fff;border-bottom:4px solid #880800}
+    .pbar{display:flex;flex-direction:column;align-items:center;gap:5px;margin-top:26px}
+    .plvl{font-size:15px;color:var(--gold);letter-spacing:2px}
+    .xtrack{width:200px;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden}
+    .xfill{height:100%;background:linear-gradient(90deg,#FFD700,#FF8800);border-radius:4px;transition:width .5s}
+    .xlabel{font-family:Arial,sans-serif;font-size:11px;color:#556688}
 
-    #hud {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      padding: 6px 14px 4px;
-      color: #fff;
-      font-family: 'Impact', 'Arial Black', Arial, sans-serif;
-    }
+    /* MODES */
+    #s-modes{background:radial-gradient(ellipse at 50% 30%,#1a3a6e 0%,var(--dark) 68%);gap:12px}
+    .mtitle{font-size:26px;color:#fff;margin-bottom:6px}
+    .mcard{width:290px;padding:14px 18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;cursor:pointer;transition:background .15s,transform .08s;text-align:left}
+    .mcard:active{transform:scale(.97);background:rgba(255,255,255,.1)}
+    .mcard h3{font-size:18px;color:var(--gold);margin-bottom:3px}
+    .mcard p{font-family:Arial,sans-serif;font-size:12px;color:#7799bb}
 
-    #score {
-      font-size: 22px;
-      color: #FFD700;
-      letter-spacing: 1px;
-    }
+    /* GAME */
+    #s-game{background:transparent;padding:0}
+    #gwrap{display:flex;flex-direction:column;align-items:center;width:400px;max-width:100vw}
+    #hud{display:flex;justify-content:space-between;align-items:center;width:100%;padding:6px 14px 3px}
+    #hud-score{font-size:22px;color:var(--gold)}
+    #hud-mode{font-family:Arial,sans-serif;font-size:12px;color:#556688}
+    #hud-right{font-size:15px;color:#aabbd4}
+    canvas{display:block;max-width:100%;touch-action:none}
+    #hint{font-family:Arial,sans-serif;font-size:13px;color:#445566;text-align:center;padding:7px;min-height:30px;letter-spacing:1px}
 
-    #kicks-left {
-      font-size: 15px;
-      color: #aabbd4;
-    }
+    /* RESULT */
+    #s-result{background:radial-gradient(ellipse at 50% 40%,#1a2a4e 0%,var(--dark) 70%);gap:14px}
+    .rtitle{font-size:48px;color:var(--gold);text-shadow:0 0 30px rgba(255,215,0,.6)}
+    .rscore{font-size:32px;color:#fff;font-family:Arial,sans-serif;font-weight:bold}
+    .rrating{font-size:20px;color:var(--gold)}
+    .rxp{font-family:Arial,sans-serif;font-size:16px;color:#00FF88}
+    .xbig{width:260px;height:14px;background:rgba(255,255,255,.1);border-radius:7px;overflow:hidden}
+    .xbfill{height:100%;background:linear-gradient(90deg,#00FF88,#FFD700);border-radius:7px;width:0%;transition:width 1s ease}
+    .rbtns{display:flex;gap:10px;margin-top:6px}
 
-    #best {
-      font-size: 14px;
-      color: #6688aa;
-    }
+    /* LEVEL UP */
+    #lvlup{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.88);opacity:0;pointer-events:none;transition:opacity .3s;z-index:200}
+    #lvlup.on{opacity:1}
+    .lutxt{font-size:50px;color:var(--gold);text-shadow:0 0 50px gold;animation:pop .5s ease}
+    .lulvl{font-size:26px;color:#fff;margin-top:10px}
+    @keyframes pop{0%{transform:scale(.4)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
 
-    canvas {
-      display: block;
-      max-width: 100%;
-      touch-action: none;
-      cursor: crosshair;
-    }
-
-    #bottom {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      padding: 8px 14px;
-      gap: 10px;
-    }
-
-    #hint {
-      font-family: Arial, sans-serif;
-      font-size: 13px;
-      color: #7799bb;
-      flex: 1;
-    }
-
-    #shoot-btn {
-      font-family: 'Impact', 'Arial Black', Arial, sans-serif;
-      font-size: 20px;
-      letter-spacing: 2px;
-      color: #fff;
-      background: linear-gradient(to bottom, #ff5533, #cc1100);
-      border: none;
-      border-bottom: 4px solid #880800;
-      border-radius: 10px;
-      padding: 12px 28px;
-      cursor: pointer;
-      flex-shrink: 0;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.6);
-      transition: transform 0.08s, border-bottom-width 0.08s;
-    }
-
-    #shoot-btn:active {
-      transform: translateY(3px);
-      border-bottom-width: 1px;
-    }
-
-    #shoot-btn:disabled {
-      background: linear-gradient(to bottom, #444, #222);
-      border-bottom-color: #111;
-      color: #666;
-      cursor: default;
-    }
+    .back{position:absolute;top:14px;left:14px;font-family:Arial,sans-serif;font-size:13px;color:#556688;background:none;border:none;cursor:pointer;padding:4px 8px}
+    #s-career{background:radial-gradient(ellipse at 50% 30%,#1a3a6e 0%,var(--dark) 68%);gap:10px}
+    #career-list{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
   </style>
 </head>
 <body>
-  <div id="wrapper">
+
+<!-- MENU -->
+<div id="s-menu" class="screen active">
+  <div class="logo">⚽ PENALTY KINGS</div>
+  <div class="sub">World Class Penalty Kicks</div>
+  <button class="mbtn p" id="btn-play">PLAY</button>
+  <button class="mbtn s" id="btn-career">CAREER MODE</button>
+  <button class="mbtn s" id="btn-daily">DAILY CHALLENGE ⭐</button>
+  <div class="pbar">
+    <div class="plvl" id="m-lvl">LEVEL 1 · AMATEUR</div>
+    <div class="xtrack"><div class="xfill" id="m-xp" style="width:0%"></div></div>
+    <div class="xlabel" id="m-xlabel">0 / 100 XP</div>
+  </div>
+</div>
+
+<!-- MODE SELECT -->
+<div id="s-modes" class="screen">
+  <button class="back" id="back-modes">← Back</button>
+  <div class="mtitle">SELECT MODE</div>
+  <div class="mcard" id="mode-quick"><h3>⚽ Quick Play</h3><p>5 kicks · Score as many as you can</p></div>
+  <div class="mcard" id="mode-shoot"><h3>🏆 Penalty Shootout</h3><p>10 kicks · Maximum intensity</p></div>
+  <div class="mcard" id="mode-sudden"><h3>⚡ Sudden Death</h3><p>Kick until you miss · How far can you go?</p></div>
+  <div class="mcard" id="mode-arcade"><h3>🎯 Arcade — 60s</h3><p>Score as many as possible in one minute</p></div>
+</div>
+
+<!-- GAME -->
+<div id="s-game" class="screen">
+  <div id="gwrap">
     <div id="hud">
-      <div id="score">⚽ 0 / 0</div>
-      <div id="kicks-left">5 kicks left</div>
-      <div id="best">BEST: 0</div>
+      <div id="hud-score">⚽ 0 / 0</div>
+      <div id="hud-mode">QUICK PLAY</div>
+      <div id="hud-right">5 left</div>
     </div>
     <canvas id="c"></canvas>
-    <div id="bottom">
-      <div id="hint">Tap goal to aim</div>
-      <button id="shoot-btn" disabled>SHOOT!</button>
-    </div>
+    <div id="hint">SWIPE UP TO SHOOT</div>
   </div>
-  <script src="game.js"></script>
+</div>
+
+<!-- CAREER -->
+<div id="s-career" class="screen">
+  <button class="back" id="back-career">← Back</button>
+  <div class="mtitle">CAREER</div>
+  <div id="career-list"></div>
+</div>
+
+<!-- RESULT -->
+<div id="s-result" class="screen">
+  <div class="rtitle" id="r-title">FULL TIME!</div>
+  <div class="rscore" id="r-score">3 / 5</div>
+  <div class="rrating" id="r-rating">⚽⚽⚽ Clinical!</div>
+  <div class="rxp" id="r-xp">+120 XP</div>
+  <div class="xbig"><div class="xbfill" id="r-xbar"></div></div>
+  <div class="rbtns">
+    <button class="mbtn p" id="btn-again" style="width:130px;font-size:16px">PLAY AGAIN</button>
+    <button class="mbtn s" id="btn-menu"  style="width:130px;font-size:16px">MENU</button>
+    <button class="mbtn s" id="btn-share" style="width:58px;font-size:18px;padding:15px 0">📤</button>
+  </div>
+</div>
+
+<!-- LEVEL UP -->
+<div id="lvlup">
+  <div class="lutxt">LEVEL UP!</div>
+  <div class="lulvl" id="lu-txt">Level 2 — Striker</div>
+</div>
+
+<script src="game.js"></script>
 </body>
 </html>

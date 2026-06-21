@@ -1,7 +1,7 @@
 {
-  "name": "Penalty Kick!",
-  "short_name": "Penalty",
-  "description": "Flash-style penalty kick game",
+  "name": "Penalty Kings",
+  "short_name": "Penalty Kings",
+  "description": "World class penalty kick game",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
