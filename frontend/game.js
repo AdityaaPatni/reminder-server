@@ -39,7 +39,7 @@ const GK_CFG = [
   { name:'Marco',     jersey:'#2266cc', reach:52, accuracy:.52, react:.46 },
   { name:'Diaz',      jersey:'#1a8833', reach:60, accuracy:.63, react:.35 },
   { name:'De Bruyne', jersey:'#881aaa', reach:68, accuracy:.74, react:.25 },
-  { name:'AI-1000',   jersey:'#111',    reach:76, accuracy:.86, react:.13 },
+  { name:'AI-1000',   jersey:'#111111',  reach:76, accuracy:.86, react:.13 },
 ];
 
 // ─── Persistence ────────────────────────────────────────────────────────────
