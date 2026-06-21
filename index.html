@@ -285,7 +285,7 @@ body{min-height:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemF
         </div>
         <div class="settings-note">
           A tiny free server sends push notifications even when this app is completely closed.<br><br>
-          <strong>Deploy free:</strong> render.com &#8594; New &#8594; Web Service &#8594; connect <strong>adityaapatni/Test-repo</strong> &#8594; Root Dir: <strong>backend</strong> &#8594; Start: <strong>node server.js</strong>
+          <strong>Deploy free:</strong> render.com &#8594; New &#8594; Web Service &#8594; connect <strong>adityaapatni/reminder-server</strong> &#8594; Root Dir: <strong>backend</strong> &#8594; Start: <strong>node server.js</strong>
         </div>
         <button class="settings-btn" style="background:var(--green);color:#fff;" onclick="saveBackendUrl()">&#10003; Save &amp; Connect</button>
       </div>
@@ -321,7 +321,7 @@ body{min-height:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemF
       <div class="fg">
         <div class="fg-hdr">About</div>
         <div class="fg-body">
-          <div class="fr status-row"><span>Version</span><span class="ver-text">v2.8</span></div>
+          <div class="fr status-row"><span>Version</span><span class="ver-text">v2.9</span></div>
           <div class="fr status-row"><span>Updated</span><span class="ver-text">Jun 21, 2026</span></div>
         </div>
       </div>
@@ -350,7 +350,7 @@ body{min-height:100%;overflow-x:hidden;font-family:-apple-system,BlinkMacSystemF
 
 <script>
 'use strict';
-const APP_VERSION='v2.8';
+const APP_VERSION='v2.9';
 const APP_BUILD='Jun 21, 2026';
 const STORE='reminders_v4';
 let DB=[];
@@ -730,8 +730,7 @@ settingsBackdrop.addEventListener('click',e=>{if(e.target===settingsBackdrop)clo
 document.getElementById('btnSearch').addEventListener('click',()=>{
   searchOpen=!searchOpen;
   document.getElementById('searchWrap').classList.toggle('open',searchOpen);
-  document.getElementById('btnSearch').classList.toggle('active',searchOpen);
-  if(searchOpen)setTimeout(()=>document.getElementById('searchInput').focus(),280);
+  document.getElementById('btnSearch').classList.toggle('active',searchOpen);  if(searchOpen)setTimeout(()=>document.getElementById('searchInput').focus(),280);
   else{searchQuery='';document.getElementById('searchInput').value='';render();}
 });
 document.getElementById('searchInput').addEventListener('input',e=>{
@@ -847,8 +846,7 @@ if('serviceWorker'in navigator){
 
 document.addEventListener('visibilitychange',()=>{});
 
-dbLoad();renderPermBar();renderHintBar();renderBackendBar();render();scheduleAll();setupPush();sendConfigToSW();
-// Fire any reminders that fired in the last 10 minutes while app was killed
+dbLoad();renderPermBar();renderHintBar();renderBackendBar();render();scheduleAll();setupPush();sendConfigToSW();syncWithBackend();
 (function checkMissed(){
   const now=Date.now();
   DB.forEach(r=>{
