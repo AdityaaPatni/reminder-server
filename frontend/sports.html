@@ -41,6 +41,17 @@ button{font:inherit;cursor:pointer;border:none;border-radius:12px}
 .chip{padding:8px 12px;font-size:13px;font-weight:600;border-radius:999px;background:var(--card2);
   border:1px solid var(--line);color:var(--dim)}
 .chip.sel{background:rgba(54,211,153,.14);border-color:var(--accent);color:var(--accent)}
+.chip.ex{background:rgba(255,77,94,.13);border-color:var(--live);color:#ff8a94}
+.chip .x{margin-left:7px;opacity:.75;font-weight:700}
+.seg{display:flex;gap:4px;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:3px;margin:4px 0 8px}
+.seg button{flex:1;padding:7px 4px;font-size:11.5px;font-weight:600;color:var(--dim);background:transparent;border-radius:8px}
+.seg button.on{background:rgba(54,211,153,.16);color:var(--accent)}
+.empty{color:var(--faint);font-size:13px;padding:2px 0 6px}
+details.add{margin-top:4px}
+details.add>summary{list-style:none;cursor:pointer;display:inline-block;padding:9px 13px;font-size:13px;font-weight:600;
+  color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:11px}
+details.add>summary::-webkit-details-marker{display:none}
+details.add[open]>summary{color:var(--accent);border-color:var(--accent)}
 .grp{margin-bottom:14px}
 .grp>h3{font-size:12px;color:var(--faint);margin-bottom:7px;letter-spacing:.6px;text-transform:uppercase}
 .toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
@@ -100,8 +111,12 @@ a{color:var(--accent2)}
 </section>
 
 <section>
-  <h2>What to follow</h2>
-  <div id="leagues"><span class="spin"></span></div>
+  <h2>Following</h2>
+  <div id="following"><span class="spin"></span></div>
+  <details class="add" id="addWrap">
+    <summary>＋ Add competitions</summary>
+    <div id="leagues" style="margin-top:12px"></div>
+  </details>
   <div style="margin-top:6px">
     <h3 style="font-size:12px;color:var(--faint);letter-spacing:.6px;text-transform:uppercase;margin:12px 0 7px">
       Other ESPN league (optional)</h3>
@@ -114,12 +129,12 @@ a{color:var(--accent2)}
 </section>
 
 <section id="teamsCard" hidden>
-  <h2>Narrow to teams <span style="text-transform:none;letter-spacing:0;color:var(--faint)">(optional)</span></h2>
-  <p class="note">Pick nothing in a league and you get every match in it.</p>
+  <h2>Teams &amp; drivers</h2>
+  <p class="note">Per competition: every match, only the ones you pick, or everything except the ones you pick.</p>
   <div id="teams"></div>
 </section>
 
-<section>
+<section data-sportcard="soccer" hidden>
   <h2>Football moments</h2>
   <div class="toggle"><div><b>Goals</b><small>With scorer, assist and the minute</small></div>
     <div class="sw" data-sport="football" data-ev="goal"></div></div>
@@ -139,7 +154,7 @@ a{color:var(--accent2)}
     <div class="sw" data-sport="football" data-ev="other"></div></div>
 </section>
 
-<section>
+<section data-sportcard="cricket" hidden>
   <h2>Cricket moments</h2>
   <div class="toggle"><div><b>Wickets</b><small>Batter out, their score, the bowler</small></div>
     <div class="sw" data-sport="cricket" data-ev="wicket"></div></div>
@@ -173,16 +188,34 @@ a{color:var(--accent2)}
   </div>
 </section>
 
+<section id="f1Card" hidden>
+  <h2>Formula 1 moments</h2>
+  <div class="toggle"><div><b>Session start</b><small>Lights out, and qualifying/practice going green</small></div>
+    <div class="sw" data-sport="f1" data-ev="start"></div></div>
+  <div class="toggle"><div><b>Lead change</b><small>When the race lead changes hands</small></div>
+    <div class="sw" data-sport="f1" data-ev="lead"></div></div>
+  <div class="toggle"><div><b>My drivers' positions</b><small>Needs drivers picked above</small></div>
+    <div class="sw" data-sport="f1" data-ev="driverPosition"></div></div>
+  <div class="toggle"><div><b>Result</b><small>Winner, pole, podium</small></div>
+    <div class="sw" data-sport="f1" data-ev="final"></div></div>
+  <h2 style="margin:18px 0 10px">Which sessions</h2>
+  <div class="toggle"><div><b>Race</b><small></small></div><div class="sw" data-sport="f1" data-ev="race"></div></div>
+  <div class="toggle"><div><b>Sprint</b><small></small></div><div class="sw" data-sport="f1" data-ev="sprint"></div></div>
+  <div class="toggle"><div><b>Qualifying</b><small></small></div><div class="sw" data-sport="f1" data-ev="qualifying"></div></div>
+  <div class="toggle"><div><b>Practice</b><small>Off by default</small></div><div class="sw" data-sport="f1" data-ev="practice"></div></div>
+</section>
+
 <section>
   <h2>Right now <span id="liveAt" style="text-transform:none;letter-spacing:0;color:var(--faint);font-weight:400"></span></h2>
   <div id="live"><p class="note">Pick a league above to see its matches.</p></div>
 </section>
 
-<footer>Cricket &amp; football from ESPN's public feed · checked every 20s while your matches are live</footer>
+<footer>Cricket, football &amp; F1 from ESPN's public feed · checked every 20s while something you follow is live</footer>
 
 <script>
 const API = location.origin;
 const UID_KEY = 'sportsUserId';
+const PREFS_KEY = 'sportsPrefs';
 let uid = localStorage.getItem(UID_KEY);
 if (!uid) { uid = (crypto.randomUUID ? crypto.randomUUID() : 'u' + Date.now() + Math.random().toString(16).slice(2)); localStorage.setItem(UID_KEY, uid); }
 
@@ -190,8 +223,12 @@ let prefs = {
   leagues: [], teams: {},
   football: { start: true, goal: true, red: true, yellow: false, sub: true, break: true, other: true, final: true },
   cricket: { start: true, wicket: true, batterMilestone: true, teamMilestone: true, bowlerMilestone: true, boundary: false, innings: true, final: true },
+  f1: { start: true, lead: true, driverPosition: true, final: true, race: true, sprint: true, qualifying: true, practice: false },
+  teamMode: {},
   digestMinutes: 0, enabled: true,
 };
+const MODE_LABEL = { all: 'Every match', only: 'Only these', except: 'All except these' };
+let addDrawerSet = false;
 let catalog = [];
 let subscribed = false;
 let reg = null;
@@ -266,65 +303,128 @@ async function enable() {
   setStatus();
 }
 
+function cachePrefs() {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (_) {}
+}
+
 let saveTimer = null;
 function savePrefs() {
+  cachePrefs();                      // survives a reload even before push is on
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     if (!subscribed) return;
     try {
-      const res = await api('/sports/prefs', {
+      // Fire and forget: the response is only a confirmation. Merging it back
+      // would let a slow earlier save overwrite a choice just made here.
+      await api('/sports/prefs', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: uid, prefs }),
       });
-      prefs = { ...prefs, ...res.prefs };
     } catch (_) { /* retried on next change */ }
   }, 450);
 }
 
 /* ------------------------------------------------------------------ render */
+function removeLeague(id) {
+  prefs.leagues = prefs.leagues.filter(l => l !== id);
+  delete prefs.teams[id];
+  delete prefs.teamMode[id];
+  savePrefs(); render(); loadLive();
+}
+
+function addLeague(id) {
+  if (!prefs.leagues.includes(id)) prefs.leagues.push(id);
+  savePrefs(); render(); loadLive();
+}
+
+function renderFollowing() {
+  const host = $('#following');
+  host.innerHTML = '';
+  if (!prefs.leagues.length) {
+    host.innerHTML = '<p class="empty">Nothing yet — add a competition below.</p>';
+    return;
+  }
+  const chips = document.createElement('div'); chips.className = 'chips';
+  prefs.leagues.forEach(id => {
+    const label = (catalog.find(l => l.id === id) || {}).label || id;
+    const b = document.createElement('button');
+    b.className = 'chip sel';
+    b.innerHTML = esc(label) + '<span class="x">✕</span>';
+    b.title = 'Remove ' + label;
+    b.onclick = () => removeLeague(id);
+    chips.appendChild(b);
+  });
+  host.appendChild(chips);
+  const hint = document.createElement('p');
+  hint.className = 'note'; hint.style.marginTop = '8px';
+  hint.textContent = 'Tap one to stop following it.';
+  host.appendChild(hint);
+}
+
 function renderLeagues() {
   const host = $('#leagues');
   host.innerHTML = '';
   const groups = [...new Set(catalog.map(l => l.group))];
+  let offered = 0;
   groups.forEach(g => {
+    const rest = catalog.filter(l => l.group === g && !prefs.leagues.includes(l.id));
+    if (!rest.length) return;
+    offered += rest.length;
     const wrap = document.createElement('div'); wrap.className = 'grp';
-    wrap.innerHTML = '<h3>' + g + '</h3>';
+    wrap.innerHTML = '<h3>' + esc(g) + '</h3>';
     const chips = document.createElement('div'); chips.className = 'chips';
-    catalog.filter(l => l.group === g).forEach(l => {
+    rest.forEach(l => {
       const b = document.createElement('button');
-      b.className = 'chip' + (prefs.leagues.includes(l.id) ? ' sel' : '');
+      b.className = 'chip';
       b.textContent = l.label;
-      b.onclick = () => {
-        const i = prefs.leagues.indexOf(l.id);
-        if (i >= 0) { prefs.leagues.splice(i, 1); delete prefs.teams[l.id]; }
-        else prefs.leagues.push(l.id);
-        savePrefs(); render(); loadLive();
-      };
+      b.onclick = () => addLeague(l.id);
       chips.appendChild(b);
     });
     wrap.appendChild(chips); host.appendChild(wrap);
   });
+  if (!offered) host.innerHTML = '<p class="empty">You are following everything in the list.</p>';
 }
 
 async function renderTeams() {
   const card = $('#teamsCard'), host = $('#teams');
   if (!prefs.leagues.length) { card.hidden = true; return; }
   card.hidden = false;
-  host.innerHTML = '<span class="spin"></span>';
+  if (!host.childElementCount) host.innerHTML = '<span class="spin"></span>';
+
   const blocks = [];
   for (const id of prefs.leagues) {
     const label = (catalog.find(l => l.id === id) || {}).label || id;
+    const isF1 = id.startsWith('racing/');
     let teams = [];
     try { teams = (await api('/sports/teams?league=' + encodeURIComponent(id))).teams; } catch (_) {}
     const sel = prefs.teams[id] || [];
+    const mode = prefs.teamMode[id] || (sel.length ? 'only' : 'all');
+
     const div = document.createElement('div'); div.className = 'grp';
-    div.innerHTML = '<h3>' + label + (teams.length ? '' : ' — no team list, all matches') + '</h3>';
-    if (teams.length) {
+    div.innerHTML = '<h3>' + esc(label) + (isF1 ? ' — drivers' : '') + '</h3>';
+
+    if (!teams.length) {
+      div.insertAdjacentHTML('beforeend', '<p class="empty">No list available — every match is included.</p>');
+      blocks.push(div); continue;
+    }
+
+    const seg = document.createElement('div'); seg.className = 'seg';
+    (isF1 ? ['all', 'only', 'except'] : ['all', 'only', 'except']).forEach(m => {
+      const b = document.createElement('button');
+      b.className = mode === m ? 'on' : '';
+      b.textContent = isF1 && m === 'all' ? 'All drivers' : MODE_LABEL[m];
+      b.onclick = () => { prefs.teamMode[id] = m; savePrefs(); renderTeams(); loadLive(); };
+      seg.appendChild(b);
+    });
+    div.appendChild(seg);
+
+    if (mode !== 'all') {
       const chips = document.createElement('div'); chips.className = 'chips teamlist';
       teams.forEach(t => {
+        const picked = sel.includes(t.id);
         const b = document.createElement('button');
-        b.className = 'chip' + (sel.includes(t.id) ? ' sel' : '');
-        b.textContent = t.abbr ? t.name + ' (' + t.abbr + ')' : t.name;
+        b.className = 'chip' + (picked ? (mode === 'except' ? ' ex' : ' sel') : '');
+        b.textContent = t.abbr && !isF1 ? t.name + ' (' + t.abbr + ')' : t.name;
         b.onclick = () => {
           const cur = prefs.teams[id] || [];
           const i = cur.indexOf(t.id);
@@ -335,6 +435,11 @@ async function renderTeams() {
         chips.appendChild(b);
       });
       div.appendChild(chips);
+      div.insertAdjacentHTML('beforeend',
+        '<p class="note" style="margin-top:7px">' +
+        (mode === 'except'
+          ? 'Tapped ones are muted — everything else still reaches you.'
+          : 'Only the tapped ones reach you.') + '</p>');
     }
     blocks.push(div);
   }
@@ -354,7 +459,17 @@ function renderToggles() {
   $('#digest').value = String(prefs.digestMinutes || 0);
 }
 
-function render() { renderLeagues(); renderTeams(); renderToggles(); setStatus(); }
+function render() {
+  renderFollowing(); renderLeagues(); renderTeams(); renderToggles(); setStatus();
+  const has = p => prefs.leagues.some(id => p.test(id));
+  $('#f1Card').hidden = !has(/^racing\//);
+  document.querySelectorAll('[data-sportcard]').forEach(el => {
+    el.hidden = !has(new RegExp('^' + el.dataset.sportcard + '/'));
+  });
+  // Open the picker on first load when nothing is followed, then leave it alone
+  // so adding one competition doesn't shut the drawer mid-selection.
+  if (!addDrawerSet) { $('#addWrap').open = !prefs.leagues.length; addDrawerSet = true; }
+}
 
 /* -------------------------------------------------------------- live board */
 let liveToken = 0;
@@ -366,8 +481,12 @@ async function loadLive() {
     const { events } = await api('/sports/live?leagues=' + encodeURIComponent(prefs.leagues.join(',')));
     if (token !== liveToken) return;
     const mine = events.filter(e => {
+      if (e.sport === 'f1') return true;
       const picked = prefs.teams[e.league] || [];
-      return !picked.length || e.teams.some(t => picked.includes(t.id));
+      const mode = prefs.teamMode[e.league] || (picked.length ? 'only' : 'all');
+      if (mode === 'all' || !picked.length) return true;
+      const hit = e.teams.some(t => picked.includes(t.id));
+      return mode === 'except' ? !hit : hit;
     }).slice(0, 25);
     if (!mine.length) { host.innerHTML = '<p class="note">No matches scheduled in those leagues right now.</p>'; return; }
     host.innerHTML = mine.map(e => {
@@ -375,15 +494,11 @@ async function loadLive() {
       const when = e.state === 'pre' && e.date
         ? new Date(e.date).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
         : (e.detail || '');
-      const score = e.teams.length >= 2
-        ? (e.sport === 'cricket'
-            ? e.teams.map(t => t.abbr + ' ' + (t.score || '—')).join('  |  ')
-            : e.teams.map(t => t.abbr + ' ' + (t.score || 0)).join('  –  '))
-        : e.name;
+      const score = e.line || e.name;
       return '<div class="match">' +
         '<div class="state' + (live ? ' live' : '') + '">' + (live ? '<b></b>LIVE' : (e.state === 'post' ? 'FT' : 'SOON')) + '</div>' +
-        '<div class="mid"><div class="t">' + esc(score) + '</div>' +
-        '<div class="l">' + esc(e.leagueLabel + (when ? ' · ' + when : '') + (live && e.clock ? ' · ' + e.clock : '')) + '</div></div></div>';
+        '<div class="mid"><div class="t">' + esc(e.sport === 'f1' ? e.name : score) + '</div>' +
+        '<div class="l">' + esc((e.sport === 'f1' ? score : e.leagueLabel) + (when ? ' · ' + when : '') + (live && e.clock ? ' · ' + e.clock : '')) + '</div></div></div>';
     }).join('');
     $('#liveAt').textContent = '· ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   } catch (e) {
@@ -433,13 +548,26 @@ $('#addLeague').onclick = async () => {
 navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.type === 'resubscribe') enable(); });
 
 (async function init() {
+  // Anything chosen before notifications were switched on.
+  try {
+    const cached = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null');
+    if (cached) prefs = { ...prefs, ...cached,
+      football: { ...prefs.football, ...(cached.football || {}) },
+      cricket: { ...prefs.cricket, ...(cached.cricket || {}) },
+      f1: { ...prefs.f1, ...(cached.f1 || {}) },
+      teamMode: { ...(cached.teamMode || {}) } };
+  } catch (_) {}
+
   try {
     catalog = (await api('/sports/leagues')).leagues;
     const got = await api('/sports/prefs?userId=' + encodeURIComponent(uid));
     subscribed = got.subscribed;
-    prefs = { ...prefs, ...got.prefs,
+    if (subscribed) prefs = { ...prefs, ...got.prefs,
       football: { ...prefs.football, ...(got.prefs.football || {}) },
-      cricket: { ...prefs.cricket, ...(got.prefs.cricket || {}) } };
+      cricket: { ...prefs.cricket, ...(got.prefs.cricket || {}) },
+      f1: { ...prefs.f1, ...(got.prefs.f1 || {}) },
+      teamMode: { ...(got.prefs.teamMode || {}) } };
+    cachePrefs();
     // Leagues the server knows about but that aren't in the catalog (custom adds)
     prefs.leagues.filter(id => !catalog.some(l => l.id === id))
       .forEach(id => catalog.push({ id, group: 'Added by me', label: id }));

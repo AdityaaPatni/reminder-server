@@ -51,20 +51,30 @@ const LEAGUES = [
   { id: 'cricket/8050',            group: 'Cricket',         label: 'Ranji Trophy' },
   { id: 'cricket/8052',            group: 'Cricket',         label: 'County Championship' },
   { id: 'cricket/8053',            group: 'Cricket',         label: 'T20 Blast (ENG)' },
+
+  { id: 'racing/f1',               group: 'Formula 1',       label: 'Formula 1' },
 ];
 
 const LEAGUE_BY_ID = new Map(LEAGUES.map(l => [l.id, l]));
 const labelFor = id => (LEAGUE_BY_ID.get(id) || {}).label || id;
-const sportOf = leagueId => (String(leagueId).startsWith('cricket/') ? 'cricket' : 'football');
+const sportOf = leagueId => {
+  const s = String(leagueId);
+  if (s.startsWith('cricket/')) return 'cricket';
+  if (s.startsWith('racing/')) return 'f1';
+  return 'football';
+};
 
 const FOOTBALL_KINDS = ['start', 'goal', 'red', 'yellow', 'sub', 'break', 'other', 'final'];
 const CRICKET_KINDS = ['start', 'wicket', 'batterMilestone', 'teamMilestone', 'bowlerMilestone', 'boundary', 'innings', 'final'];
+const F1_KINDS = ['start', 'lead', 'driverPosition', 'final'];
+const F1_SESSIONS = ['race', 'sprint', 'qualifying', 'practice'];
 
 // When several moments land in the same poll cycle, the most important one gets
 // the notification title; the rest go in a second, quieter one.
 const PRIORITY = {
   goal: 100, red: 90, final: 85, wicket: 80, batterMilestone: 70, bowlerMilestone: 65,
-  teamMilestone: 60, other: 55, start: 50, innings: 45, sub: 40, break: 35, boundary: 20, yellow: 15,
+  teamMilestone: 60, other: 55, lead: 52, start: 50, innings: 45, sub: 40, break: 35,
+  driverPosition: 30, boundary: 20, yellow: 15,
 };
 
 const DEFAULT_PREFS = {
@@ -72,6 +82,8 @@ const DEFAULT_PREFS = {
   teams: {},
   football: { start: true, goal: true, red: true, yellow: false, sub: true, break: true, other: true, final: true },
   cricket: { start: true, wicket: true, batterMilestone: true, teamMilestone: true, bowlerMilestone: true, boundary: false, innings: true, final: true },
+  f1: { start: true, lead: true, driverPosition: true, final: true, race: true, sprint: true, qualifying: true, practice: false },
+  teamMode: {},        // league -> 'all' | 'only' | 'except'
   digestMinutes: 0,
   enabled: true,
 };
@@ -83,6 +95,8 @@ function migratePrefs(p = {}) {
     ...p,
     football: { ...DEFAULT_PREFS.football, ...(p.football || {}) },
     cricket: { ...DEFAULT_PREFS.cricket, ...(p.cricket || {}) },
+    f1: { ...DEFAULT_PREFS.f1, ...(p.f1 || {}) },
+    teamMode: { ...(p.teamMode || {}) },
   };
   if (p.events && !p.football && !p.cricket) {
     const e = p.events;
@@ -91,7 +105,7 @@ function migratePrefs(p = {}) {
   }
   delete out.events;
   // Drop leagues from the old multi-sport catalogue (NBA, NFL, ...).
-  out.leagues = (out.leagues || []).filter(id => /^(soccer|cricket)\//.test(id));
+  out.leagues = (out.leagues || []).filter(id => /^(soccer|cricket|racing)\//.test(id));
   return out;
 }
 
@@ -153,12 +167,61 @@ function normalizeEvent(leagueId, ev) {
   };
 }
 
+// A Grand Prix weekend is one ESPN event holding several sessions (FP1..Race).
+// Each session becomes its own entry, because each starts, runs and finishes.
+function sessionKind(abbr = '') {
+  const a = String(abbr).toLowerCase();
+  if (/^fp|practice/.test(a)) return 'practice';
+  if (/^sq|sprint q/.test(a)) return 'sprint';
+  if (/sprint|^sr$/.test(a)) return 'sprint';
+  if (/^q|qual/.test(a)) return 'qualifying';
+  return 'race';
+}
+
+const SESSION_LABEL = { practice: 'Practice', qualifying: 'Qualifying', sprint: 'Sprint', race: 'Race' };
+
+function normalizeF1(leagueId, ev) {
+  const gp = ev.shortName || ev.name || 'Grand Prix';
+  return (ev.competitions || []).map(comp => {
+    const st = comp.status || {};
+    const type = st.type || {};
+    const abbr = (comp.type || {}).abbreviation || '';
+    const kind = sessionKind(abbr);
+    const drivers = (comp.competitors || []).map(c => ({
+      id: String(c.id || (c.athlete || {}).id || ''),
+      name: (c.athlete || {}).displayName || (c.athlete || {}).fullName || '?',
+      short: (c.athlete || {}).shortName || (c.athlete || {}).displayName || '?',
+      order: Number(c.order || 0),
+      winner: c.winner === true || c.winner === 'true',
+    })).sort((a, b) => a.order - b.order);
+
+    return {
+      id: `${ev.id}.${comp.id}`,
+      league: leagueId,
+      leagueLabel: labelFor(leagueId),
+      sport: 'f1',
+      session: kind,
+      sessionLabel: abbr || SESSION_LABEL[kind],
+      name: `${gp} · ${abbr || SESSION_LABEL[kind]}`,
+      circuit: (ev.circuit || {}).fullName || '',
+      date: comp.startDate || comp.date || ev.date || null,
+      state: type.state || 'pre',
+      desc: type.description || '',
+      detail: type.shortDetail || type.detail || type.description || '',
+      clock: '',
+      period: Number(st.period || 0),            // lap number during a race
+      summary: '',
+      teams: [],
+      drivers,
+    };
+  });
+}
+
 async function fetchLeague(leagueId) {
   const json = await getJson(`${ESPN}/${leagueId}/scoreboard`);
-  return (json.events || [])
-    .filter(ev => ev && ev.id)
-    .map(ev => normalizeEvent(leagueId, ev))
-    .filter(ev => ev.teams.length >= 2);
+  const events = (json.events || []).filter(ev => ev && ev.id);
+  if (sportOf(leagueId) === 'f1') return events.flatMap(ev => normalizeF1(leagueId, ev));
+  return events.map(ev => normalizeEvent(leagueId, ev)).filter(ev => ev.teams.length >= 2);
 }
 
 const liveCache = new Map();
@@ -173,7 +236,19 @@ async function leagueEvents(leagueId, maxAgeMs = 20000) {
 
 /* -------------------------------------------------------------- wording */
 
+function podium(ev) {
+  const top = (ev.drivers || []).filter(d => d.order > 0).slice(0, 3);
+  if (!top.length) return ev.circuit || '';
+  return top.map((d, i) => `${i + 1}. ${d.short}`).join('  ');
+}
+
 function scoreline(ev) {
+  if (ev.sport === 'f1') {
+    const leader = (ev.drivers || []).find(d => d.order === 1);
+    if (ev.state === 'post') return podium(ev);
+    if (ev.state === 'in') return `${leader ? 'Leader: ' + leader.short : 'Underway'}${ev.period ? ' · lap ' + ev.period : ''}`;
+    return ev.circuit || ev.name;
+  }
   const t = ev.teams;
   if (t.length < 2) return ev.name;
   if (ev.sport === 'cricket') return t.map(x => `${x.abbr} ${x.score || '—'}`.trim()).join('  |  ');
@@ -186,13 +261,19 @@ const BREAK_RE = /half|break|innings|interval|delay|suspend|rain|postpon|extra t
 const isBreak = d => !!d && !/^in progress$/i.test(d) && BREAK_RE.test(d);
 
 function snapshotOf(ev) {
-  return {
+  const snap = {
     state: ev.state,
     desc: ev.desc,
     period: ev.period,
     scores: ev.teams.map(t => t.score),
     wickets: ev.teams.map(t => t.wickets),
   };
+  if (ev.sport === 'f1') {
+    const lead = (ev.drivers || []).find(d => d.order === 1);
+    snap.leader = lead ? lead.id : null;
+    snap.positions = Object.fromEntries((ev.drivers || []).map(d => [d.id, d.order]));
+  }
+  return snap;
 }
 
 function whoScored(prev, ev) {
@@ -209,7 +290,49 @@ function whoScored(prev, ev) {
  * reliable and cost nothing). Mid-match alerts are only produced when the
  * match's detail feed is unavailable, so nothing is announced twice.
  */
+function diffF1(prev, ev) {
+  const out = [];
+  const league = ev.leagueLabel;
+
+  if (prev.state === 'pre' && ev.state === 'in') {
+    out.push({ kind: 'start', session: ev.session, head: `🏁 ${ev.name} underway`, sub: `${ev.circuit || ''} · ${league}`.replace(/^ · /, '') });
+  }
+
+  if (prev.state === 'in' && ev.state === 'in') {
+    const lead = (ev.drivers || []).find(d => d.order === 1);
+    if (lead && prev.leader && lead.id !== prev.leader) {
+      out.push({ kind: 'lead', session: ev.session, head: `🔴 New leader: ${lead.name}`, sub: `${ev.name}${ev.period ? ' · lap ' + ev.period : ''} · ${league}` });
+    }
+    for (const d of ev.drivers || []) {
+      const before = prev.positions ? prev.positions[d.id] : undefined;
+      if (before && d.order && d.order !== before) {
+        out.push({
+          kind: 'driverPosition', session: ev.session, driverId: d.id,
+          head: `${d.order < before ? '⬆️' : '⬇️'} ${d.short} P${d.order}`,
+          sub: `was P${before}${ev.period ? ' · lap ' + ev.period : ''} · ${ev.name}`,
+        });
+      }
+    }
+  }
+
+  if (prev.state !== 'post' && ev.state === 'post') {
+    const winner = (ev.drivers || []).find(d => d.winner) || (ev.drivers || []).find(d => d.order === 1);
+    const verb = ev.session === 'qualifying' ? 'takes pole'
+      : ev.session === 'practice' ? `fastest in ${ev.sessionLabel}`
+      : ev.session === 'sprint' ? 'wins the sprint' : 'wins';
+    const icon = ev.session === 'practice' ? '⏱️' : '🏆';
+    out.push({
+      kind: 'final', session: ev.session,
+      head: winner ? `${icon} ${winner.name} ${verb}` : `🏁 ${ev.name} finished`,
+      sub: `${podium(ev)} · ${ev.name}`,
+    });
+  }
+
+  return out;
+}
+
 function diffEvent(prev, ev, enriched) {
+  if (ev.sport === 'f1') return diffF1(prev, ev);
   const out = [];
   const league = ev.leagueLabel;
 
@@ -255,9 +378,51 @@ function diffEvent(prev, ev, enriched) {
 
 const teamCache = new Map();
 
+async function f1Drivers() {
+  // Scheduled sessions carry no competitors, so fall back to the most recent
+  // session of the season that does.
+  const collect = events => {
+    const seen = new Map();
+    for (const ev of events) {
+      for (const comp of ev.competitions || []) {
+        for (const c of comp.competitors || []) {
+          const a = c.athlete || {};
+          const id = String(c.id || a.id || '');
+          if (id && !seen.has(id)) seen.set(id, { id, abbr: a.shortName || '', name: a.displayName || a.fullName || id, logo: (a.flag || {}).href || '' });
+        }
+      }
+    }
+    return [...seen.values()];
+  };
+
+  try {
+    const now = await getJson(`${ESPN}/racing/f1/scoreboard`);
+    let drivers = collect(now.events || []);
+    if (!drivers.length) {
+      const year = new Date().getFullYear();
+      const season = await getJson(`${ESPN}/racing/f1/scoreboard?dates=${year}`);
+      const done = (season.events || []).filter(ev => (ev.competitions || []).some(c => (c.competitors || []).length));
+      const latest = done[done.length - 1];
+      if (latest) {
+        // The race entry list is the actual grid; practice sessions add reserve
+        // drivers who never start.
+        const race = (latest.competitions || []).find(c => sessionKind((c.type || {}).abbreviation) === 'race' && (c.competitors || []).length);
+        drivers = collect([{ competitions: race ? [race] : latest.competitions }]);
+      }
+    }
+    return drivers;
+  } catch { return []; }
+}
+
 async function leagueTeams(leagueId) {
   const hit = teamCache.get(leagueId);
   if (hit && Date.now() - hit.at < 12 * 60 * 60 * 1000) return hit.teams;
+
+  if (sportOf(leagueId) === 'f1') {
+    const teams = (await f1Drivers()).sort((a, b) => a.name.localeCompare(b.name));
+    teamCache.set(leagueId, { at: Date.now(), teams });
+    return teams;
+  }
 
   let teams = [];
   try {
@@ -304,12 +469,31 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
 
   function follows(prefs, ev) {
     if (!(prefs.leagues || []).includes(ev.league)) return false;
+    if (ev.sport === 'f1') return true;            // a session involves every driver
     const picked = (prefs.teams || {})[ev.league] || [];
-    return !picked.length || ev.teams.some(t => picked.includes(t.id));
+    const mode = (prefs.teamMode || {})[ev.league] || (picked.length ? 'only' : 'all');
+    if (mode === 'all' || !picked.length) return true;
+    const hit = ev.teams.some(t => picked.includes(t.id));
+    return mode === 'except' ? !hit : hit;
   }
 
   const anyoneFollows = ev => activeSubs().some(([, prefs]) => follows(prefs, ev));
-  const wants = (prefs, ev, kind) => (prefs[ev.sport] || {})[kind] !== false;
+
+  /** Does this subscriber want this particular alert? */
+  function wants(prefs, ev, alert) {
+    const block = prefs[ev.sport] || {};
+    if (block[alert.kind] === false) return false;
+    if (ev.sport === 'f1') {
+      if (alert.session && block[alert.session] === false) return false;
+      if (alert.kind === 'driverPosition') {
+        const picked = (prefs.teams || {})['racing/f1'] || [];
+        const mode = (prefs.teamMode || {})['racing/f1'] || (picked.length ? 'only' : 'all');
+        if (!picked.length) return false;          // every driver moving would be spam
+        return mode === 'except' ? !picked.includes(alert.driverId) : picked.includes(alert.driverId);
+      }
+    }
+    return true;
+  }
 
   async function send(userId, payload) {
     const rec = store.sportsSubs[userId];
@@ -326,6 +510,7 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
 
   /** Fetch a live match's detail feed and turn it into alerts. */
   async function enrich(ev) {
+    if (ev.sport === 'f1') return null;            // no detail feed; scoreboard is the source
     const key = ev.id;
     const saved = store.sportsDetail[key];
     const prevState = saved && saved.state;
@@ -413,7 +598,7 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
         const mine = [];
         for (const { ev, alerts } of perEvent) {
           if (!follows(prefs, ev)) continue;
-          const keep = alerts.filter(a => wants(prefs, ev, a.kind));
+          const keep = alerts.filter(a => wants(prefs, ev, a));
           if (keep.length) mine.push({ ev, alerts: keep });
         }
 
@@ -496,7 +681,11 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
   /* ---------------------------------------------------------- routes */
 
   function register(app) {
-    app.get('/sports/leagues', (_req, res) => res.json({ leagues: LEAGUES, kinds: { football: FOOTBALL_KINDS, cricket: CRICKET_KINDS } }));
+    app.get('/sports/leagues', (_req, res) => res.json({
+      leagues: LEAGUES,
+      kinds: { football: FOOTBALL_KINDS, cricket: CRICKET_KINDS, f1: F1_KINDS },
+      f1Sessions: F1_SESSIONS,
+    }));
 
     app.get('/sports/teams', async (req, res) => {
       const league = String(req.query.league || '');
@@ -512,19 +701,24 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
       await Promise.all(ids.map(async id => { try { out.push(...(await leagueEvents(id))); } catch { /* skip */ } }));
       const rank = { in: 0, pre: 1, post: 2 };
       out.sort((a, b) => (rank[a.state] - rank[b.state]) || String(a.date).localeCompare(String(b.date)));
-      res.json({ events: out, at: new Date().toISOString(), livePolling: lastLiveCount > 0 });
+      res.json({
+        events: out.map(ev => ({ ...ev, line: scoreline(ev) })),
+        at: new Date().toISOString(),
+        livePolling: lastLiveCount > 0,
+      });
     });
 
     app.get('/sports/validate', async (req, res) => {
       const league = String(req.query.league || '').replace(/^\/+|\/+$/g, '');
-      if (!/^(soccer|cricket)\/[a-z0-9._-]+$/i.test(league)) {
-        return res.status(400).json({ ok: false, error: 'expected soccer/<slug> or cricket/<id>, e.g. cricket/8082' });
+      if (!/^(soccer|cricket|racing)\/[a-z0-9._-]+$/i.test(league)) {
+        return res.status(400).json({ ok: false, error: 'expected soccer/<slug>, cricket/<id> or racing/<series>' });
       }
       try {
         const json = await getJson(`${ESPN}/${league}/scoreboard`);
         const name = ((json.leagues || [])[0] || {}).name;
         if (!name) return res.status(404).json({ ok: false, error: 'no such league' });
-        res.json({ ok: true, league, label: name, group: sportOf(league) === 'cricket' ? 'Cricket' : 'Football' });
+        const group = sportOf(league) === 'cricket' ? 'Cricket' : sportOf(league) === 'f1' ? 'Formula 1' : 'Football';
+        res.json({ ok: true, league, label: name, group });
       } catch (e) { res.status(404).json({ ok: false, error: e.message }); }
     });
 
@@ -585,6 +779,7 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
 }
 
 module.exports = {
-  createSportsService, LEAGUES, FOOTBALL_KINDS, CRICKET_KINDS,
+  createSportsService, LEAGUES, FOOTBALL_KINDS, CRICKET_KINDS, F1_KINDS, F1_SESSIONS,
+  normalizeF1, diffF1, podium,
   normalizeEvent, diffEvent, snapshotOf, scoreline, migratePrefs, DEFAULT_PREFS,
 };

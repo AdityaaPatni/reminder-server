@@ -7,11 +7,11 @@ It now does two things:
 
 | Path | What it is |
 |---|---|
-| `/sports.html` | **Live Scores** — real-time cricket & football updates as notifications |
+| `/sports.html` | **Live Scores** — real-time cricket, football & F1 updates as notifications |
 | `/` | Penalty Kings (the game) |
 | `/health` | status check |
 
-## Live cricket & football updates
+## Live cricket, football & F1 updates
 
 Open `https://<your-app>.onrender.com/sports.html`, pick the leagues (and optionally the
 exact teams) you care about, choose which moments should buzz, and tap **Turn on live
@@ -54,6 +54,21 @@ service wakes the service worker, not the page.
 | Result | `🏁 QLD 348 & 19/0 | TAS 133 & 233` · *Queensland won by 10 wickets* |
 | Fours & sixes | off by default — a T20 would buzz 30 times |
 
+**Formula 1**
+
+A Grand Prix weekend is five sessions (FP1–FP3, Qualifying, Race) and each is tracked
+separately, so you can take the race and ignore practice.
+
+| Moment | Example notification |
+|---|---|
+| Session start | `🏁 Heineken Las Vegas GP · Race underway` |
+| Lead change | `🔴 New leader: Lando Norris` · *lap 24* |
+| Your drivers' positions | `⬇️ M. Verstappen P3` · *was P1 · lap 24* |
+| Result | `🏆 Lando Norris wins` · *1. L. Norris 2. M. Verstappen 3. I. Hadjar* |
+| Qualifying / practice | `🏆 … takes pole`, `⏱️ … fastest in FP1` (practice off by default) |
+
+Position alerts only fire for drivers you pick — all 20 moving around would be unusable.
+
 Every moment is a separate switch on the page, so you can keep goals and wickets and drop
 the rest. There is also an optional score summary every 5–60 minutes while your matches
 are live.
@@ -63,6 +78,20 @@ When two things happen inside one poll, the more important one gets the notifica
 Updates for the same match reuse one notification slot, so your lock screen shows the
 current state instead of a stack of stale scores.
 
+### Pruning what you follow
+
+The page is built for trimming down over time:
+
+- **Following** lists only what you have added; tap any entry's ✕ to drop it. Everything
+  else sits behind **＋ Add competitions**, so the list stays short.
+- Each competition has three team modes: **Every match**, **Only these** (a shortlist) or
+  **All except these** (mute the clubs you don't want to hear about). For F1 the same
+  control picks your drivers.
+- Moment switches are per sport, and a sport's switches only appear once you follow
+  something in it.
+- Choices are kept in the browser as well as on the server, so they survive a reload even
+  before notifications are switched on.
+
 ### How "real time" works
 
 Two tiers of data from [ESPN's public feed](https://site.api.espn.com) (no API key):
@@ -71,6 +100,7 @@ Two tiers of data from [ESPN's public feed](https://site.api.espn.com) (no API k
    scheduled → live → finished transitions.
 2. **Detail feed**, one request per *live* match: football `keyEvents` (scorers, cards,
    subs) and cricket ball-by-ball (wickets, every batter's running total, bowler figures).
+   F1 needs no second tier — the scoreboard carries live positions and the lap count.
 
 Polling runs **every 20 seconds while a followed match is live** and drops to every 3
 minutes when nothing is on, so an idle day costs almost nothing. End to end you should see
@@ -91,8 +121,11 @@ FIFA World Cup + UEFA qualifying, AFCON, Indian Super League, MLS, Liga MX.
 Cricket: IPL, ICC Cricket World Cup, Champions Trophy, Big Bash, Sheffield Shield,
 Ranji Trophy, County Championship, T20 Blast.
 
-Any other ESPN cricket or football competition can be added in the page's **Other ESPN
-league** box using the id from its scoreboard URL, e.g. `cricket/8082` or `soccer/bra.1`.
+Motorsport: Formula 1.
+
+No NBA, NFL, NHL or MLB — deliberately. Any other ESPN cricket, football or racing
+competition can be added in the page's **Other ESPN league** box using the id from its
+scoreboard URL, e.g. `cricket/8082` or `soccer/bra.1`.
 
 ### HTTP API
 
@@ -109,9 +142,11 @@ POST /sports/test        {userId}        send yourself a test notification
 POST /sports/poll-now                   force a poll cycle
 ```
 
-`prefs` is `{ leagues: [...], teams: { league: [teamId] }, football: {...}, cricket: {...},
-digestMinutes }`, where the two sport blocks hold one boolean per moment. Older flat
-`events` prefs are migrated automatically.
+`prefs` is `{ leagues: [...], teams: { league: [teamId] }, teamMode: { league:
+'all'|'only'|'except' }, football: {...}, cricket: {...}, f1: {...}, digestMinutes }`.
+Each sport block holds one boolean per moment; the F1 block also holds one per session
+type (`race`, `sprint`, `qualifying`, `practice`). Older flat `events` prefs, and leagues
+from sports no longer covered, are migrated away automatically.
 
 ## Deploying
 
