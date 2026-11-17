@@ -65,7 +65,7 @@ function scoreFromGoalText(ev, text) {
              || ev.teams.find(t => t.name.toLowerCase().includes(name.trim().toLowerCase()));
     return hit ? hit.abbr : name.trim();
   };
-  return `${abbr(n1)} ${s1} – ${s2} ${abbr(n2)}`;
+  return `${abbr(n1)} ${s1}-${s2} ${abbr(n2)}`;
 }
 
 // "Assisted by Bradley Barcola with a cross." -> "Bradley Barcola"
@@ -127,7 +127,7 @@ function diffFootball(ev, state, scoreline, keyEvents) {
     } else if (kind === 'red') {
       alerts.push({
         kind: 'red',
-        head: `🟥 Red card — ${k.players[0] || k.teamName || 'player'}`,
+        head: `🟥 Red card: ${k.players[0] || k.teamName || 'player'}`,
         sub: `${k.teamName}${when} · ${scoreline} · ${league}`,
       });
     } else if (kind === 'yellow') {
@@ -261,7 +261,7 @@ function diffCricket(ev, state, balls, pageCount) {
     if (!seeding && /^out$|wicket/.test(play)) {
       alerts.push({
         kind: 'wicket',
-        head: `🏏 WICKET — ${batName || 'batter'} ${bat.totalRuns ?? ''}${bat.faced ? ' (' + bat.faced + ')' : ''}`.trim(),
+        head: `🏏 WICKET: ${batName || 'batter'} ${bat.totalRuns ?? ''}${bat.faced ? ' (' + bat.faced + ')' : ''}`.trim(),
         sub: `${line}${bowlName ? ' · ' + bowlName : ''} · ${league}`,
       });
     }
@@ -278,7 +278,7 @@ function diffCricket(ev, state, balls, pageCount) {
         const word = mark === 50 ? 'FIFTY' : mark === 100 ? 'HUNDRED' : `${mark}`;
         alerts.push({
           kind: 'batterMilestone',
-          head: `${emoji} ${word} — ${batName}`,
+          head: `${emoji} ${word}: ${batName}`,
           sub: `${after} off ${bat.faced || '?'}${bat.fours || bat.sixes ? ` (${bat.fours || 0}x4, ${bat.sixes || 0}x6)` : ''} · ${line} · ${league}`,
         });
       }
@@ -306,7 +306,7 @@ function diffCricket(ev, state, balls, pageCount) {
       if (!seeding && mark) {
         alerts.push({
           kind: 'bowlerMilestone',
-          head: `🎯 ${bowlName} — ${mark} wickets`,
+          head: `🎯 ${bowlName}: ${mark} wickets`,
           sub: `${after}/${bowl.conceded ?? '?'} in ${bowl.overs ?? '?'} ov · ${line} · ${league}`,
         });
       }
@@ -316,7 +316,7 @@ function diffCricket(ev, state, balls, pageCount) {
     if (!seeding && (play === 'six' || play === 'four')) {
       alerts.push({
         kind: 'boundary',
-        head: `${play === 'six' ? '💥 SIX' : '4️⃣ FOUR'} — ${batName}`,
+        head: `${play === 'six' ? '💥 SIX' : '4️⃣ FOUR'}: ${batName}`,
         sub: `${b.shortText || ''} · ${line} · ${league}`,
       });
     }

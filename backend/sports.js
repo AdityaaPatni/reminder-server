@@ -66,6 +66,14 @@ const sportOf = leagueId => {
   return 'football';
 };
 
+// "2026-27 English Premier League" and "Premier League" are the same thing to a
+// reader, so discovered football labels are folded onto the catalogue's.
+const normLeagueName = n => String(n || '')
+  .toLowerCase()
+  .replace(/^\d{4}(-\d{2})?\s+/, '')
+  .replace(/^(english|spanish|italian|german|french|dutch|portuguese|indian|mexican|uefa)\s+/, '')
+  .replace(/[^a-z]/g, '');
+
 const FOOTBALL_KINDS = ['start', 'goal', 'red', 'yellow', 'sub', 'break', 'other', 'final'];
 const CRICKET_KINDS = ['start', 'wicket', 'batterMilestone', 'teamMilestone', 'bowlerMilestone', 'boundary', 'innings', 'final'];
 const F1_KINDS = ['start', 'lead', 'driverPosition', 'final'];
@@ -162,6 +170,7 @@ function normalizeEvent(leagueId, ev) {
     league: leagueId,
     leagueLabel: labelFor(leagueId),
     sport,
+    title: comp.description || comp.shortDescription || '',
     name: ev.shortName || ev.name || teams.map(t => t.abbr).join(' v '),
     date: ev.date || comp.date || null,
     state: type.state || 'pre',
@@ -258,10 +267,14 @@ function scoreline(ev) {
   }
   const t = ev.teams;
   if (t.length < 2) return ev.name;
-  if (ev.sport === 'cricket') return t.map(x => `${x.abbr} ${x.score || '—'}`.trim()).join('  |  ');
+  if (ev.sport === 'cricket') {
+    // Before a ball is bowled there is no score to show, just the fixture.
+    if (t.every(x => !x.score)) return t.map(x => x.abbr).join(' v ');
+    return t.map(x => `${x.abbr} ${x.score || 'yet to bat'}`.trim()).join('  |  ');
+  }
   const home = t.find(x => x.home) || t[0];
   const away = t.find(x => !x.home) || t[1];
-  return `${home.abbr} ${home.score || 0} – ${away.score || 0} ${away.abbr}`;
+  return `${home.abbr} ${home.score || 0}-${away.score || 0} ${away.abbr}`;
 }
 
 const BREAK_RE = /half|break|innings|interval|delay|suspend|rain|postpon|extra time|shootout/i;
@@ -354,7 +367,7 @@ function diffEvent(prev, ev, enriched) {
   if (!enriched && prev.state === 'in' && ev.state === 'in') {
     if (ev.sport === 'football' && ev.teams.map(t => t.score).join('|') !== prev.scores.join('|')) {
       const scorer = whoScored(prev, ev);
-      out.push({ kind: 'goal', head: `⚽ ${scoreline(ev)}`, sub: `${scorer ? 'Goal — ' + scorer : 'Goal'}${ev.clock ? ' ' + ev.clock : ''} · ${league}` });
+      out.push({ kind: 'goal', head: `⚽ ${scoreline(ev)}`, sub: `${scorer ? 'Goal: ' + scorer : 'Goal'}${ev.clock ? ' ' + ev.clock : ''} · ${league}` });
     }
     if (ev.sport === 'cricket') {
       const gotWicket = ev.teams.some((t, i) => {
@@ -479,17 +492,23 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
     const set = new Set();
     for (const [, prefs] of activeSubs()) (prefs.leagues || []).forEach(l => set.add(l));
 
-    // Teams are followed across every competition, so ask discovery which
-    // series currently hold one of their matches.
-    for (const [sport, espnSport] of [['cricket', 'cricket'], ['football', 'soccer']]) {
-      const ids = followedTeamIds(sport);
-      if (!ids.length) continue;
+    // Teams are followed across every competition.
+    const cricketIds = followedTeamIds('cricket');
+    if (cricketIds.length) {
       try {
-        for (const comp of await discovery.competitions(espnSport)) DISCOVERED_LABELS.set(comp.id, comp.label);
-        (await discovery.leaguesForTeams(espnSport, ids)).forEach(l => set.add(l));
-      } catch (e) {
-        console.error('[sports] discovery failed', sport, e.message);
-      }
+        for (const comp of await discovery.competitions('cricket')) DISCOVERED_LABELS.set(comp.id, comp.label);
+        (await discovery.leaguesForTeams('cricket', cricketIds)).forEach(l => set.add(l));
+      } catch (e) { console.error('[sports] cricket discovery failed', e.message); }
+    }
+
+    // Football's header ids are display-only (the scoreboard API rejects them),
+    // so find the team by scanning the league slugs that do work.
+    const footballIds = followedTeamIds('football');
+    if (footballIds.length) {
+      try {
+        const slugs = LEAGUES.filter(l => l.group === 'Football').map(l => l.id);
+        (await discovery.scanLeagues(slugs, footballIds)).forEach(l => set.add(l));
+      } catch (e) { console.error('[sports] football scan failed', e.message); }
     }
     return [...set];
   }
@@ -794,7 +813,7 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
       const ok = await send(userId, {
         kind: 'sports',
         title: '✅ Live updates are on',
-        body: 'Goals, red cards, subs, wickets and milestones will arrive like this — with the page closed.',
+        body: 'Goals, red cards, subs, wickets and milestones arrive like this, with the app closed.',
         tag: 'sports:test',
         url: '/sports.html',
       });
@@ -839,12 +858,31 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
       })());
 
       const ids = new Set(prefs.leagues || []);
-      for (const [sport, espnSport] of [['cricket', 'cricket'], ['football', 'soccer']]) {
-        const teams = (prefs.follow || {})[sport] || [];
+      const upcoming = [];
+
+      const cricketTeams = (prefs.follow || {}).cricket || [];
+      if (cricketTeams.length) {
+        try {
+          for (const comp of await discovery.competitions('cricket')) DISCOVERED_LABELS.set(comp.id, comp.label);
+          (await discovery.leaguesForTeams('cricket', cricketTeams)).forEach(l => ids.add(l));
+        } catch { /* skip */ }
+      }
+      const footballTeams = (prefs.follow || {}).football || [];
+      if (footballTeams.length) {
+        try {
+          const slugs = LEAGUES.filter(l => l.group === 'Football').map(l => l.id);
+          (await discovery.scanLeagues(slugs, footballTeams)).forEach(l => ids.add(l));
+        } catch { /* skip */ }
+      }
+
+      // Fixtures further out than today's scoreboards reach.
+      for (const [sport, espnSport, teams] of [['cricket', 'cricket', cricketTeams], ['football', 'soccer', footballTeams]]) {
         if (!teams.length) continue;
         try {
-          for (const comp of await discovery.competitions(espnSport)) DISCOVERED_LABELS.set(comp.id, comp.label);
-          (await discovery.leaguesForTeams(espnSport, teams)).forEach(l => ids.add(l));
+          const want = new Set(teams.map(String));
+          for (const fx of await discovery.fixtures(espnSport)) {
+            if (fx.teams.some(t => want.has(t.id))) upcoming.push(fx);
+          }
         } catch { /* skip */ }
       }
 
@@ -852,6 +890,25 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
       await Promise.all([...ids].slice(0, 20).map(async id => {
         try { out.push(...(await leagueEvents(id))); } catch { /* skip */ }
       }));
+
+      const catalogByName = new Map(LEAGUES.filter(l => l.group === 'Football')
+        .map(l => [normLeagueName(l.label), l]));
+
+      const seen = new Set(out.map(e => e.id));
+      for (const fx of upcoming) {
+        if (seen.has(fx.id)) continue;
+        seen.add(fx.id);
+        const known = fx.sport === 'football' ? catalogByName.get(normLeagueName(fx.leagueLabel)) : null;
+        out.push({
+          ...fx,
+          league: known ? known.id : fx.league,
+          leagueLabel: known ? known.label : fx.leagueLabel,
+          detail: fx.summary || '',
+          clock: '',
+          period: 0,
+          teams: fx.teams.map(t => ({ ...t, score: t.score || '' })),
+        });
+      }
 
       const mine = out.filter(ev => follows(prefs, ev));
       const rank = { in: 0, pre: 1, post: 2 };

@@ -15,8 +15,9 @@
 
 const HEADER = 'https://site.web.api.espn.com/apis/v2/scoreboard/header';
 
-// Today plus a fortnight ahead — enough to catch a tour before it starts.
-const DAY_OFFSETS = [0, 2, 5, 9, 14];
+// Every day for the next fortnight. Sampling every few days was missing
+// football fixtures, which sit on one date rather than running for days.
+const DAY_OFFSETS = Array.from({ length: 14 }, (_, i) => i);
 
 async function getJson(url, timeoutMs = 12000) {
   const ctl = new AbortController();
@@ -40,24 +41,33 @@ function parseHeader(json, sport) {
   for (const s of json.sports || []) {
     for (const lg of s.leagues || []) {
       const leagueId = `${sport === 'cricket' ? 'cricket' : 'soccer'}/${lg.id}`;
-      const events = (lg.events || []).map(ev => ({
-        id: String(ev.id),
-        league: leagueId,
-        leagueLabel: lg.name || lg.shortName || leagueId,
-        sport: sport === 'cricket' ? 'cricket' : 'football',
-        name: ev.shortName || ev.name || '',
-        title: ev.title || '',
-        date: ev.date || null,
-        state: ev.status || ((ev.fullStatus || {}).type || {}).state || 'pre',
-        summary: ev.summary || '',
-        teams: (ev.competitors || []).map(c => ({
+      const events = (lg.events || []).map(ev => {
+        const teams = (ev.competitors || []).map(c => ({
           id: String(c.id || ''),
           abbr: c.abbreviation || c.name || '',
           name: c.displayName || c.abbreviation || '',
           logo: c.logo || '',
+          score: c.score == null ? '' : String(c.score).trim(),
+          home: c.homeAway === 'home',
           national: c.isNational === true,
-        })).filter(t => t.id),
-      })).filter(ev => ev.teams.length >= 2);
+        })).filter(t => t.id);
+        // The soccer feed puts the competition name in event.name, so build the
+        // matchup from the sides instead when that is what we got.
+        const raw = ev.shortName || ev.name || '';
+        const looksLikeLeague = !raw || raw === (lg.name || '') || /league|cup|championship|series|trophy/i.test(raw) && !/ v | vs |@/i.test(raw);
+        return {
+        id: String(ev.id),
+        league: leagueId,
+        leagueLabel: lg.name || lg.shortName || leagueId,
+        sport: sport === 'cricket' ? 'cricket' : 'football',
+        name: looksLikeLeague && teams.length >= 2 ? teams.map(t => t.abbr).join(' v ') : raw,
+        title: ev.title || '',
+        date: ev.date || null,
+        state: ev.status || ((ev.fullStatus || {}).type || {}).state || 'pre',
+        summary: ev.summary || '',
+        teams,
+      };
+      }).filter(ev => ev.teams.length >= 2);
       if (events.length) out.push({ id: leagueId, label: lg.name || leagueId, events });
     }
   }
@@ -128,6 +138,32 @@ function createDiscovery({ store, persist, ttlMinutes = 15 }) {
     return [...hits];
   }
 
+  /**
+   * Which of these scoreboard slugs currently hold a match for one of these
+   * teams. Used for football, whose header ids the site API rejects, so the
+   * fast poll only ever hits the one or two leagues that matter today.
+   */
+  const scanCache = new Map();
+  async function scanLeagues(leagueIds, teamIds, maxAgeMs = 10 * 60 * 1000) {
+    if (!teamIds || !teamIds.length) return [];
+    const key = leagueIds.join(',') + '|' + [...teamIds].sort().join(',');
+    const hit = scanCache.get(key);
+    if (hit && Date.now() - hit.at < maxAgeMs) return hit.leagues;
+
+    const want = new Set(teamIds.map(String));
+    const found = [];
+    await Promise.all(leagueIds.map(async id => {
+      try {
+        const json = await getJson(`https://site.api.espn.com/apis/site/v2/sports/${id}/scoreboard`);
+        const hasTeam = (json.events || []).some(ev =>
+          ((ev.competitions || [])[0] || {}).competitors?.some(c => want.has(String((c.team || {}).id))));
+        if (hasTeam) found.push(id);
+      } catch { /* skip this league */ }
+    }));
+    scanCache.set(key, { at: Date.now(), leagues: found });
+    return found;
+  }
+
   function directory(sport, q = '', limit = 60) {
     const dir = store.sportsDirectory[sport] || {};
     const needle = String(q).trim().toLowerCase();
@@ -140,7 +176,7 @@ function createDiscovery({ store, persist, ttlMinutes = 15 }) {
     return rows.slice(0, limit);
   }
 
-  return { competitions, fixtures, leaguesForTeams, directory, remember };
+  return { competitions, fixtures, leaguesForTeams, scanLeagues, directory, remember };
 }
 
 module.exports = { createDiscovery, parseHeader };

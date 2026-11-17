@@ -9,6 +9,7 @@
 <title>Live Scores</title>
 <link rel="manifest" href="sports-manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
@@ -50,6 +51,14 @@ h1{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:-.4px;
 .tag.warn{color:var(--accent-ink);background:var(--accent-soft);border-color:transparent}
 .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 
+nav.tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:4px;margin-bottom:16px}
+nav.tabs button{flex:1;padding:11px 8px;font-size:15px;font-weight:500;color:var(--muted);
+  background:transparent;border-radius:9px}
+nav.tabs button.on{background:var(--raise);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
+.grpcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:12px}
+.grpcard h4{font-family:var(--serif);font-size:16px;font-weight:600;color:var(--ink);margin-bottom:2px}
+.grpcard .meta{font-size:12px;color:var(--faint);margin-bottom:8px}
 section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
 h2{font-family:var(--serif);font-size:19px;font-weight:600;color:var(--ink);letter-spacing:-.2px;margin-bottom:4px}
 h2+.sub{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-height:1.45}
@@ -134,15 +143,36 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;padding:4px 0 0;lin
   <span class="tag" id="status">checking…</span>
 </header>
 
+<nav class="tabs">
+  <button data-view="scores" class="on">Scores</button>
+  <button data-view="settings">Settings</button>
+</nav>
+
+<div id="view-scores">
+  <div class="seg" id="sportBar">
+    <button data-sp="all" class="on">All</button>
+    <button data-sp="cricket">Cricket</button>
+    <button data-sp="football">Football</button>
+    <button data-sp="f1">F1</button>
+  </div>
+  <div class="seg" id="groupBar" style="margin-top:0">
+    <button data-grp="league" class="on">By league</button>
+    <button data-grp="team">By team</button>
+  </div>
+  <div id="board"><p class="note">Nothing followed yet. Open Settings to add a team or a competition.</p></div>
+  <p class="note" id="boardAt" style="text-align:center;margin-top:14px"></p>
+</div>
+
+<div id="view-settings" hidden>
+
 <div id="iosBanner" class="callout" hidden>
-  <b>On iPhone:</b> tap Share → Add to Home Screen, then open it from that icon. Apple only allows
-  notifications for Home Screen apps — a Safari tab can't do it.
+  <b>iPhone:</b> tap Share, then Add to Home Screen. Open it from that icon. Notifications do not
+  work in a Safari tab.
 </div>
 
 <section>
-  <h2>Follow teams</h2>
-  <p class="sub">Search any team and you'll get its matches wherever they are — a bilateral tour, a World Cup,
-    a domestic league. No need to know which series it's in.</p>
+  <h2>Teams</h2>
+  <p class="sub">Search a team and you get its matches in any series: tours, World Cups, domestic leagues.</p>
   <div id="followed"></div>
   <div class="seg" id="sportSeg">
     <button data-sport="cricket" class="on">Cricket</button>
@@ -153,26 +183,25 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;padding:4px 0 0;lin
 </section>
 
 <section>
-  <h2>Follow whole competitions</h2>
-  <p class="sub">Optional — for when you want every match in a league or series, not just one team.</p>
+  <h2>Competitions</h2>
+  <p class="sub">Optional. Use this for every match in a league or series.</p>
   <div id="following"></div>
   <details class="add" id="addWrap">
-    <summary>＋ Browse competitions</summary>
+    <summary>＋ Browse</summary>
     <div id="leagues" style="margin-top:16px"></div>
     <div id="seriesWrap" style="margin-top:4px"></div>
   </details>
 </section>
 
 <section id="teamsCard" hidden>
-  <h2>Narrow a competition</h2>
-  <p class="sub">For competitions you follow whole: keep every match, only certain teams, or everything
-    except the ones you mute.</p>
+  <h2>Filter competitions</h2>
+  <p class="sub">Keep every match, only the teams you pick, or everything except the ones you mute.</p>
   <div id="teams"></div>
 </section>
 
 <section data-sportcard="football" hidden>
-  <h2>Football moments</h2>
-  <p class="sub">Each one is a separate notification you can switch off.</p>
+  <h2>Football alerts</h2>
+  <p class="sub">Each one is a separate notification.</p>
   <div class="toggle"><div><b>Goals</b><small>With scorer, assist and the minute</small></div>
     <div class="sw" data-sport="football" data-ev="goal"></div></div>
   <div class="toggle"><div><b>Red cards</b><small>Straight red and second yellow</small></div>
@@ -185,15 +214,15 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;padding:4px 0 0;lin
     <div class="sw" data-sport="football" data-ev="final"></div></div>
   <div class="toggle"><div><b>Half-time &amp; restarts</b><small>Half-time, second half, extra time</small></div>
     <div class="sw" data-sport="football" data-ev="break"></div></div>
-  <div class="toggle"><div><b>Yellow cards</b><small>Off by default — there are a lot of them</small></div>
+  <div class="toggle"><div><b>Yellow cards</b><small>Off by default. There are a lot of them.</small></div>
     <div class="sw" data-sport="football" data-ev="yellow"></div></div>
-  <div class="toggle"><div><b>Missed penalties &amp; VAR</b><small>Other decisive moments</small></div>
+  <div class="toggle"><div><b>Missed penalties &amp; VAR</b><small>Other decisive calls</small></div>
     <div class="sw" data-sport="football" data-ev="other"></div></div>
 </section>
 
 <section data-sportcard="cricket" hidden>
-  <h2>Cricket moments</h2>
-  <p class="sub">Each one is a separate notification you can switch off.</p>
+  <h2>Cricket alerts</h2>
+  <p class="sub">Each one is a separate notification.</p>
   <div class="toggle"><div><b>Wickets</b><small>Batter out, their score, the bowler</small></div>
     <div class="sw" data-sport="cricket" data-ev="wicket"></div></div>
   <div class="toggle"><div><b>Batting milestones</b><small>50, 100, 150, 200 for a batter</small></div>
@@ -208,13 +237,13 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;padding:4px 0 0;lin
     <div class="sw" data-sport="cricket" data-ev="innings"></div></div>
   <div class="toggle"><div><b>Result</b><small>Who won, by how much</small></div>
     <div class="sw" data-sport="cricket" data-ev="final"></div></div>
-  <div class="toggle"><div><b>Fours &amp; sixes</b><small>Off by default — a T20 would buzz 30 times</small></div>
+  <div class="toggle"><div><b>Fours &amp; sixes</b><small>Off by default. A T20 would send about 30.</small></div>
     <div class="sw" data-sport="cricket" data-ev="boundary"></div></div>
 </section>
 
 <section id="f1Card" hidden>
   <h2>Formula 1</h2>
-  <p class="sub">A race weekend is five sessions, each tracked on its own.</p>
+  <p class="sub">A race weekend has five sessions. Each is tracked separately.</p>
   <div class="toggle"><div><b>Session start</b><small>Lights out, and qualifying going green</small></div>
     <div class="sw" data-sport="f1" data-ev="start"></div></div>
   <div class="toggle"><div><b>Lead change</b><small>When the race lead changes hands</small></div>
@@ -233,9 +262,9 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;padding:4px 0 0;lin
 
 <section>
   <h2>Score summary</h2>
-  <p class="sub">A periodic score line for everything of yours that's live, on top of the moments above.</p>
+  <p class="sub">A repeating score line for whatever you follow that is live.</p>
   <select id="digest">
-    <option value="0">Off — only the moments above</option>
+    <option value="0">Off</option>
     <option value="5">Every 5 minutes</option>
     <option value="10">Every 10 minutes</option>
     <option value="15">Every 15 minutes</option>
@@ -246,8 +275,8 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;padding:4px 0 0;lin
 
 <section id="enableCard">
   <h2>Notifications</h2>
-  <p class="sub" id="enableNote">Turn this on once. Everything above then arrives as a notification even when
-    this app is closed or force-quit — your phone wakes it, not the other way round.</p>
+  <p class="sub" id="enableNote">Turn this on once. Alerts then arrive even when the app is closed or
+    force quit.</p>
   <button class="primary" id="enableBtn">Turn on live updates</button>
   <div class="row" style="margin-top:10px" id="postEnableRow" hidden>
     <button class="ghost" id="testBtn">Send a test</button>
@@ -255,12 +284,9 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;padding:4px 0 0;lin
   </div>
 </section>
 
-<section>
-  <h2>Your matches <span id="liveAt" style="font-family:var(--sans);font-size:12.5px;font-weight:400;color:var(--faint)"></span></h2>
-  <div id="live"><p class="note">Follow a team or a competition and its matches appear here.</p></div>
-</section>
+</div>
 
-<footer>Cricket, football &amp; F1 from ESPN's public feed<br>Checked every 20 seconds while something of yours is live</footer>
+<footer>Cricket, football and F1 scores from ESPN.<br>Checked every 20 seconds while a match you follow is live.</footer>
 
 <script>
 const API = location.origin;
@@ -278,6 +304,8 @@ let prefs = {
 };
 const MODE_LABEL = { all: 'Every match', only: 'Only these', except: 'All except these' };
 let catalog = [], subscribed = false, reg = null, addDrawerSet = false;
+let view = 'scores', sportFilter = 'all', groupBy = 'league';
+let lastEvents = [];
 let searchSport = 'cricket';
 const teamNames = {};            // id -> {name, logo} for followed teams
 
@@ -333,7 +361,7 @@ function renderFollowed() {
     const meta = teamNames[id] || {};
     const b = document.createElement('button');
     b.className = 'chip sel';
-    b.innerHTML = (meta.logo ? '<img src="' + esc(meta.logo) + '" alt="">' : '') +
+    b.innerHTML = (meta.logo ? '<img src="' + esc(meta.logo) + '" alt="" onerror="this.remove()">' : '') +
       esc(meta.name || id) + '<span class="x">✕</span>';
     b.onclick = () => {
       prefs.follow[sport] = (prefs.follow[sport] || []).filter(x => x !== id);
@@ -345,6 +373,33 @@ function renderFollowed() {
 }
 
 let searchTimer = null;
+function wireTabs() {
+  document.querySelectorAll('nav.tabs button').forEach(b => {
+    b.onclick = () => {
+      view = b.dataset.view;
+      document.querySelectorAll('nav.tabs button').forEach(x => x.classList.toggle('on', x === b));
+      $('#view-scores').hidden = view !== 'scores';
+      $('#view-settings').hidden = view !== 'settings';
+      window.scrollTo(0, 0);
+      if (view === 'scores') loadBoard();
+    };
+  });
+  document.querySelectorAll('#sportBar button').forEach(b => {
+    b.onclick = () => {
+      sportFilter = b.dataset.sp;
+      document.querySelectorAll('#sportBar button').forEach(x => x.classList.toggle('on', x === b));
+      drawBoard();
+    };
+  });
+  document.querySelectorAll('#groupBar button').forEach(b => {
+    b.onclick = () => {
+      groupBy = b.dataset.grp;
+      document.querySelectorAll('#groupBar button').forEach(x => x.classList.toggle('on', x === b));
+      drawBoard();
+    };
+  });
+}
+
 function wireSearch() {
   document.querySelectorAll('#sportSeg button').forEach(b => {
     b.onclick = () => {
@@ -364,13 +419,13 @@ async function runSearch() {
   host.innerHTML = '<p class="note" style="padding:12px"><span class="spin"></span> searching…</p>';
   try {
     const { teams } = await api(`/sports/search-teams?sport=${searchSport}&q=${encodeURIComponent(q)}`);
-    if (!teams.length) { host.innerHTML = '<p class="note" style="padding:12px">Nothing found. Teams appear once they have a fixture in the next two weeks.</p>'; return; }
+    if (!teams.length) { host.innerHTML = '<p class="note" style="padding:12px">No match. A team shows up once it has a fixture in the next two weeks.</p>'; return; }
     host.innerHTML = '';
     teams.slice(0, 25).forEach(t => {
       const already = (prefs.follow[searchSport] || []).includes(t.id);
       const b = document.createElement('button');
       b.className = 'result';
-      b.innerHTML = (t.logo ? '<img src="' + esc(t.logo) + '" alt="">' : '<span style="flex:0 0 26px"></span>') +
+      b.innerHTML = (t.logo ? '<img src="' + esc(t.logo) + '" alt="" onerror="this.style.visibility=\'hidden\'">' : '<span style="flex:0 0 26px"></span>') +
         '<span class="nm">' + esc(t.name) + (t.national ? ' <span class="flag">national</span>' : '') + '</span>' +
         '<span class="add">' + (already ? '✓' : '＋') + '</span>';
       b.onclick = () => {
@@ -403,7 +458,7 @@ function addLeague(id, label) {
 function renderFollowing() {
   const host = $('#following');
   host.innerHTML = '';
-  if (!prefs.leagues.length) { host.innerHTML = '<p class="empty">None — that\'s fine if you follow teams.</p>'; return; }
+  if (!prefs.leagues.length) { host.innerHTML = '<p class="empty">None. That is fine if you follow teams.</p>'; return; }
   const chips = document.createElement('div'); chips.className = 'chips';
   prefs.leagues.forEach(id => {
     const label = (catalog.find(l => l.id === id) || {}).label || id;
@@ -458,7 +513,7 @@ async function renderSeries() {
     });
     host.appendChild(chips);
     host.insertAdjacentHTML('beforeend',
-      '<p class="note" style="margin-top:9px">Tours and one-off series appear here automatically while they run.</p>');
+      '<p class="note" style="margin-top:9px">Tours and one-off series are listed here while they run.</p>');
   } catch (e) {
     host.innerHTML = '<h3>Series on now</h3><p class="note bad">Could not load: ' + esc(e.message) + '</p>';
   }
@@ -478,9 +533,9 @@ async function renderTeams() {
     const sel = prefs.teams[id] || [];
     const mode = prefs.teamMode[id] || (sel.length ? 'only' : 'all');
     const div = document.createElement('div'); div.className = 'grp';
-    div.innerHTML = '<h3>' + esc(label) + (isF1 ? ' — drivers' : '') + '</h3>';
+    div.innerHTML = '<h3>' + esc(label) + (isF1 ? ' drivers' : '') + '</h3>';
     if (!teams.length) {
-      div.insertAdjacentHTML('beforeend', '<p class="empty">No list available — every match included.</p>');
+      div.insertAdjacentHTML('beforeend', '<p class="empty">No team list for this one. Every match is included.</p>');
       blocks.push(div); continue;
     }
     const seg = document.createElement('div'); seg.className = 'seg';
@@ -511,7 +566,7 @@ async function renderTeams() {
       });
       div.appendChild(chips);
       div.insertAdjacentHTML('beforeend', '<p class="note" style="margin-top:8px">' +
-        (mode === 'except' ? 'Muted teams are highlighted — everything else still reaches you.' : 'Only the picked ones reach you.') + '</p>');
+        (mode === 'except' ? 'Muted teams are highlighted. Everything else still reaches you.' : 'Only the picked ones reach you.') + '</p>');
     }
     blocks.push(div);
   }
@@ -542,34 +597,94 @@ function render() {
 
 /* ----------------------------------------------------------- the board */
 let boardToken = 0;
+
+const SPORT_LABEL = { cricket: 'Cricket', football: 'Football', f1: 'Formula 1' };
+
+function followedTeamIdsAll() {
+  return [...(prefs.follow.cricket || []), ...(prefs.follow.football || [])];
+}
+
+function drawBoard() {
+  const host = $('#board');
+  let events = lastEvents;
+  if (sportFilter !== 'all') events = events.filter(e => e.sport === sportFilter);
+
+  if (!events.length) {
+    const nothing = !prefs.leagues.length && !followedTeamIdsAll().length;
+    host.innerHTML = '<p class="note">' + (nothing
+      ? 'Nothing followed yet. Open Settings to add a team or a competition.'
+      : 'No matches for this filter in the next two weeks.') + '</p>';
+    return;
+  }
+
+  // Group either by competition, or by each team you follow.
+  const groups = [];
+  if (groupBy === 'team') {
+    const ids = followedTeamIdsAll();
+    const used = new Set();
+    ids.forEach(id => {
+      const meta = teamNames[id] || {};
+      const mine = events.filter(e => (e.teams || []).some(t => String(t.id) === String(id)));
+      mine.forEach(e => used.add(e.id));
+      if (mine.length) groups.push({ title: meta.name || id, meta: SPORT_LABEL[mine[0].sport] || '', rows: mine });
+    });
+    const rest = events.filter(e => !used.has(e.id));
+    if (rest.length) groups.push({ title: 'Other matches you follow', meta: '', rows: rest });
+  } else {
+    const byLeague = new Map();
+    events.forEach(e => {
+      const key = e.leagueLabel || e.league;
+      if (!byLeague.has(key)) byLeague.set(key, []);
+      byLeague.get(key).push(e);
+    });
+    for (const [title, rows] of byLeague) {
+      groups.push({ title, meta: SPORT_LABEL[rows[0].sport] || '', rows });
+    }
+  }
+
+  // Competitions with something live come first.
+  groups.sort((a, b) => {
+    const live = g => g.rows.some(r => r.state === 'in') ? 0 : 1;
+    return live(a) - live(b);
+  });
+
+  host.innerHTML = groups.map(g => {
+    const rows = g.rows.map(e => {
+      const live = e.state === 'in';
+      const when = e.state === 'pre' && e.date
+        ? new Date(e.date).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+        : (e.detail || '');
+      const title = e.sport === 'f1' ? e.name : (e.line || e.name);
+      const under = e.sport === 'f1' ? (e.line || '') : (e.title || '');
+      const situation = live ? (e.summary || e.detail || '') : when;
+      const foot = [under, situation, live && e.clock ? e.clock : ''].filter(Boolean).join(' · ');
+      return '<div class="match">' +
+        '<div class="when' + (live ? ' live' : '') + '">' +
+          (live ? '<span class="dot"></span>LIVE' : (e.state === 'post' ? 'DONE' : 'SOON')) + '</div>' +
+        '<div class="mid"><div class="t">' + esc(title) + '</div>' +
+        (foot ? '<div class="l">' + esc(foot) + '</div>' : '') + '</div></div>';
+    }).join('');
+    return '<div class="grpcard"><h4>' + esc(g.title) + '</h4>' +
+      (g.meta ? '<div class="meta">' + esc(g.meta) + '</div>' : '') + rows + '</div>';
+  }).join('');
+}
+
 async function loadBoard() {
-  const host = $('#live');
   const token = ++boardToken;
-  const nothing = !prefs.leagues.length && !(prefs.follow.cricket || []).length && !(prefs.follow.football || []).length;
-  if (nothing) { host.innerHTML = '<p class="note">Follow a team or a competition and its matches appear here.</p>'; $('#liveAt').textContent = ''; return; }
+  const nothing = !prefs.leagues.length && !followedTeamIdsAll().length;
+  if (nothing) { lastEvents = []; drawBoard(); $('#boardAt').textContent = ''; return; }
   try {
     const url = subscribed
       ? '/sports/my-board?userId=' + encodeURIComponent(uid)
       : '/sports/my-board?prefs=' + encodeURIComponent(JSON.stringify({ leagues: prefs.leagues, teams: prefs.teams, teamMode: prefs.teamMode, follow: prefs.follow }));
     const { events } = await api(url);
     if (token !== boardToken) return;
-    if (!events.length) { host.innerHTML = '<p class="note">Nothing scheduled for them in the next couple of weeks.</p>'; return; }
-    host.innerHTML = events.slice(0, 25).map(e => {
-      const live = e.state === 'in';
-      const when = e.state === 'pre' && e.date
-        ? new Date(e.date).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
-        : (e.detail || '');
-      const title = e.sport === 'f1' ? e.name : (e.line || e.name);
-      const under = e.sport === 'f1' ? (e.line || '') : e.leagueLabel;
-      return '<div class="match">' +
-        '<div class="when' + (live ? ' live' : '') + '">' + (live ? '<span class="dot"></span>LIVE' : (e.state === 'post' ? 'DONE' : 'SOON')) + '</div>' +
-        '<div class="mid"><div class="t">' + esc(title) + '</div>' +
-        '<div class="l">' + esc(under + (when ? ' · ' + when : '') + (live && e.clock ? ' · ' + e.clock : '')) + '</div></div></div>';
-    }).join('');
-    $('#liveAt').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    lastEvents = events;
+    drawBoard();
+    $('#boardAt').textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   } catch (e) {
     if (token !== boardToken) return;
-    host.innerHTML = '<p class="note bad">Could not load: ' + esc(e.message) + '</p>';
+    $('#board').innerHTML = '<p class="note bad">Could not load: ' + esc(e.message) + '</p>';
   }
 }
 
@@ -591,8 +706,8 @@ async function enable() {
   try {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       throw new Error(isIOS && !standalone
-        ? 'On iPhone, add this to your Home Screen first (Share → Add to Home Screen), then open it from that icon.'
-        : 'This browser cannot do background push. Chrome, Edge, Firefox or Safari 16.4+ can.');
+        ? 'On iPhone, add this to your Home Screen first (Share, then Add to Home Screen) and open it from that icon.'
+        : 'This browser cannot receive background notifications. Chrome, Edge, Firefox or Safari 16.4+ can.');
     }
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') throw new Error('Notification permission was not granted.');
@@ -604,7 +719,7 @@ async function enable() {
       body: JSON.stringify({ userId: uid, subscription: sub, prefs }) });
     prefs = { ...prefs, ...res.prefs };
     subscribed = true;
-    $('#enableNote').innerHTML = '<span class="ok">Updates are on.</span> You can close this — scores keep coming.';
+    $('#enableNote').innerHTML = '<span class="ok">Updates are on.</span> You can close the app.';
     btn.hidden = true; $('#postEnableRow').hidden = false;
     render(); loadBoard();
   } catch (e) {
@@ -617,7 +732,7 @@ async function enable() {
 $('#enableBtn').onclick = enable;
 $('#testBtn').onclick = async () => {
   const b = $('#testBtn'); b.disabled = true; b.textContent = 'Sending…';
-  try { await api('/sports/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: uid }) }); b.textContent = 'Sent — check notifications'; }
+  try { await api('/sports/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: uid }) }); b.textContent = 'Sent. Check your notifications.'; }
   catch (_) { b.textContent = 'Failed, try again'; }
   setTimeout(() => { b.disabled = false; b.textContent = 'Send a test'; }, 2500);
 };
@@ -677,9 +792,9 @@ navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.type ===
   }
   if (subscribed) {
     $('#enableBtn').hidden = true; $('#postEnableRow').hidden = false;
-    $('#enableNote').innerHTML = '<span class="ok">Updates are on.</span> You can close this — scores keep coming.';
+    $('#enableNote').innerHTML = '<span class="ok">Updates are on.</span> You can close the app.';
   }
-  wireSearch(); render(); loadBoard();
+  wireTabs(); wireSearch(); render(); loadBoard();
   setInterval(loadBoard, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) loadBoard(); });
 })();

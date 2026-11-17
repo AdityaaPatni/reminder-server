@@ -7,7 +7,7 @@ It now does two things:
 
 | Path | What it is |
 |---|---|
-| `/sports.html` | **Live Scores** — real-time cricket, football & F1 updates as notifications |
+| `/sports.html` | **Live Scores**, real-time cricket, football & F1 updates as notifications |
 | `/` | Penalty Kings (the game) |
 | `/health` | status check |
 
@@ -22,7 +22,7 @@ Screen), then open it from that icon and turn updates on. iOS only allows web pu
 home-screen pages. It's a shortcut of a few KB, not an app download. Requires iOS 16.4+.
 On Android/desktop Chrome, Edge or Firefox it works straight from the browser tab.
 
-Notifications arrive with the page closed, swiped away or force-quit — the browser's push
+Notifications arrive with the page closed, swiped away or force-quit, the browser's push
 service wakes the service worker, not the page.
 
 ### What gets pushed
@@ -33,26 +33,26 @@ service wakes the service worker, not the page.
 |---|---|
 | Goal | `⚽ Goal! CRY 0 – 2 LIV` · *Florian Wirtz 54' (assist: Bradley Barcola)* |
 | Penalty / own goal | `⚽ Penalty! CRY 1 – 3 LIV` |
-| Red card | `🟥 Red card — Ronald Araujo` · *Liverpool 71'* |
+| Red card | `🟥 Red card, Ronald Araujo` · *Liverpool 71'* |
 | Substitution | `🔄 Crystal Palace 60'` · *Darío Osorio replaces Quinten Timber* |
 | Kick-off | `🔴 Kick-off: LIV @ CRY` |
 | Half-time / restarts | `⏸ Halftime: CRY 0 – 1 LIV` |
 | Full time | `🏁 Full time: CRY 1 – 3 LIV` |
-| Yellow card | off by default — there are a lot of them |
+| Yellow card | off by default, there are a lot of them |
 | Missed penalty, VAR call | `⚠️ Penalty - Saved 63'` |
 
 **Cricket**
 
 | Moment | Example notification |
 |---|---|
-| Wicket | `🏏 WICKET — Hugo Burdon 70 (148)` · *QLD 138/3 · Riley Meredith* |
-| Batter 50 / 100 / 150 / 200 | `💯 HUNDRED — Jack Clayton` · *104 off 142 (12x4, 1x6)* |
+| Wicket | `🏏 WICKET, Hugo Burdon 70 (148)` · *QLD 138/3 · Riley Meredith* |
+| Batter 50 / 100 / 150 / 200 | `💯 HUNDRED, Jack Clayton` · *104 off 142 (12x4, 1x6)* |
 | Team total past each 50 | `🏏 QLD past 150` |
-| Bowling haul (3/5/7/10) | `🎯 Riley Meredith — 5 wickets` |
+| Bowling haul (3/5/7/10) | `🎯 Riley Meredith, 5 wickets` |
 | First ball | `🔴 Play underway: QLD v TAS` |
 | Innings break | `🏏 2nd innings: TAS 0/0` |
 | Result | `🏁 QLD 348 & 19/0 | TAS 133 & 233` · *Queensland won by 10 wickets* |
-| Fours & sixes | off by default — a T20 would buzz 30 times |
+| Fours & sixes | off by default, a T20 would buzz 30 times |
 
 **Formula 1**
 
@@ -67,7 +67,7 @@ separately, so you can take the race and ignore practice.
 | Result | `🏆 Lando Norris wins` · *1. L. Norris 2. M. Verstappen 3. I. Hadjar* |
 | Qualifying / practice | `🏆 … takes pole`, `⏱️ … fastest in FP1` (practice off by default) |
 
-Position alerts only fire for drivers you pick — all 20 moving around would be unusable.
+Position alerts only fire for drivers you pick, all 20 moving around would be unusable.
 
 Every moment is a separate switch on the page, so you can keep goals and wickets and drop
 the rest. There is also an optional score summary every 5–60 minutes while your matches
@@ -80,8 +80,8 @@ current state instead of a stack of stale scores.
 
 ### Following teams (the main way in)
 
-Search a team and you get **its matches wherever they are** — a bilateral tour, a World Cup,
-a franchise league — without knowing which competition they sit in.
+Search a team and you get **its matches wherever they are**, a bilateral tour, a World Cup,
+a franchise league, without knowing which competition they sit in.
 
 This works because the fixed league list can never cover cricket: every tour
 ("India tour of New Zealand 2026/27"), A-team series and women's competition gets its own
@@ -89,7 +89,7 @@ ESPN id as it is created. `backend/discover.js` reads ESPN's scoreboard *header*
 two-week window instead, which lists every competition with matches in it, and the poller
 tracks whichever series currently holds a followed team's match.
 
-The team directory is built from that same sweep, so it fills out as teams appear — national
+The team directory is built from that same sweep, so it fills out as teams appear, national
 sides are listed first. Competition-following still exists for "every match in the IPL", and
 the browse drawer lists the tours and series running right now.
 
@@ -111,20 +111,20 @@ The page is built for trimming down over time:
 
 Two tiers of data from [ESPN's public feed](https://site.api.espn.com) (no API key):
 
-1. **Scoreboard**, one request per league: who is playing, the score, and the
+1. **Scoreboard**: one request per league, who is playing, the score, and the
    scheduled → live → finished transitions.
-2. **Detail feed**, one request per *live* match: football `keyEvents` (scorers, cards,
+2. **Detail feed**: one request per *live* match, football `keyEvents` (scorers, cards,
    subs) and cricket ball-by-ball (wickets, every batter's running total, bowler figures).
-   F1 needs no second tier — the scoreboard carries live positions and the lap count.
+   F1 needs no second tier, the scoreboard carries live positions and the lap count.
 
 Polling runs **every 20 seconds while a followed match is live** and drops to every 3
 minutes when nothing is on, so an idle day costs almost nothing. End to end you should see
-a goal or wicket within roughly 20–60 seconds of it happening — ESPN's own feed adds a few
+a goal or wicket within roughly 20–60 seconds of it happening, ESPN's own feed adds a few
 seconds of its own.
 
 If a detail request fails the scoreboard still produces goal and wicket alerts by itself,
 so a hiccup degrades the detail rather than going silent. On first contact with a match
-the feeds are only recorded as a baseline, never announced — restarting the server or
+the feeds are only recorded as a baseline, never announced, restarting the server or
 following a match at half-time will not replay what already happened.
 
 ### Leagues
@@ -139,10 +139,10 @@ Ranji Trophy, County Championship, T20 Blast.
 Motorsport: Formula 1.
 
 Beyond that fixed list, every cricket and football competition ESPN currently runs is
-discovered automatically — roughly 28 cricket competitions on a normal day, most of them
+discovered automatically, roughly 28 cricket competitions on a normal day, most of them
 bilateral tours and domestic series.
 
-No NBA, NFL, NHL or MLB — deliberately. Any other ESPN cricket, football or racing
+No NBA, NFL, NHL or MLB, deliberate. Any other ESPN cricket, football or racing
 competition can be added in the page's **Other ESPN league** box using the id from its
 scoreboard URL, e.g. `cricket/8082` or `soccer/bra.1`.
 
@@ -185,7 +185,7 @@ follows the system setting.
 share one origin.
 
 Set these in the Render dashboard so phones don't have to re-subscribe after every deploy
-— the server prints a fresh pair on first boot if they're missing:
+the server prints a fresh pair on first boot if they're missing:
 
 ```
 VAPID_PUBLIC_KEY          = ...
