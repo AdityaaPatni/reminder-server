@@ -89,8 +89,8 @@ a{color:var(--accent2)}
 
 <section id="enableCard">
   <h2>Background updates</h2>
-  <p class="note" id="enableNote">Turn this on once. Scores then arrive as notifications even when this page is
-    closed or swiped away — the phone's push service wakes it, not the page.</p>
+  <p class="note" id="enableNote">Turn this on once. Goals, red cards, subs, wickets and milestones then arrive as
+    notifications even when this page is closed or force-quit — your phone's push service wakes it, not the page.</p>
   <div style="height:12px"></div>
   <button class="primary" id="enableBtn">Turn on live updates</button>
   <div class="row" style="margin-top:10px" id="postEnableRow" hidden>
@@ -120,15 +120,43 @@ a{color:var(--accent2)}
 </section>
 
 <section>
-  <h2>When to buzz me</h2>
-  <div class="toggle"><div><b>Match starts</b><small>Kick-off / first ball / tip-off</small></div>
-    <div class="sw" data-ev="start"></div></div>
-  <div class="toggle"><div><b>Goals &amp; wickets</b><small>Football goals, cricket wickets</small></div>
-    <div class="sw" data-ev="score"></div></div>
-  <div class="toggle"><div><b>Breaks</b><small>Half-time, innings, end of quarter</small></div>
-    <div class="sw" data-ev="period"></div></div>
-  <div class="toggle"><div><b>Final score</b><small>Full-time result</small></div>
-    <div class="sw" data-ev="final"></div></div>
+  <h2>Football moments</h2>
+  <div class="toggle"><div><b>Goals</b><small>With scorer, assist and the minute</small></div>
+    <div class="sw" data-sport="football" data-ev="goal"></div></div>
+  <div class="toggle"><div><b>Red cards</b><small>Straight red and second yellow</small></div>
+    <div class="sw" data-sport="football" data-ev="red"></div></div>
+  <div class="toggle"><div><b>Substitutions</b><small>Who comes on, who comes off</small></div>
+    <div class="sw" data-sport="football" data-ev="sub"></div></div>
+  <div class="toggle"><div><b>Kick-off</b><small>When the match starts</small></div>
+    <div class="sw" data-sport="football" data-ev="start"></div></div>
+  <div class="toggle"><div><b>Full time</b><small>Final score</small></div>
+    <div class="sw" data-sport="football" data-ev="final"></div></div>
+  <div class="toggle"><div><b>Half-time &amp; restarts</b><small>Half-time, second half, extra time</small></div>
+    <div class="sw" data-sport="football" data-ev="break"></div></div>
+  <div class="toggle"><div><b>Yellow cards</b><small>Off by default — there are a lot of them</small></div>
+    <div class="sw" data-sport="football" data-ev="yellow"></div></div>
+  <div class="toggle"><div><b>Missed penalties &amp; VAR calls</b><small>Other decisive moments</small></div>
+    <div class="sw" data-sport="football" data-ev="other"></div></div>
+</section>
+
+<section>
+  <h2>Cricket moments</h2>
+  <div class="toggle"><div><b>Wickets</b><small>Batter out, their score, the bowler</small></div>
+    <div class="sw" data-sport="cricket" data-ev="wicket"></div></div>
+  <div class="toggle"><div><b>Batting milestones</b><small>50, 100, 150, 200 for a batter</small></div>
+    <div class="sw" data-sport="cricket" data-ev="batterMilestone"></div></div>
+  <div class="toggle"><div><b>Team totals</b><small>Every 50 the team passes</small></div>
+    <div class="sw" data-sport="cricket" data-ev="teamMilestone"></div></div>
+  <div class="toggle"><div><b>Bowling hauls</b><small>3, 5, 7 and 10 wickets</small></div>
+    <div class="sw" data-sport="cricket" data-ev="bowlerMilestone"></div></div>
+  <div class="toggle"><div><b>First ball</b><small>When play starts</small></div>
+    <div class="sw" data-sport="cricket" data-ev="start"></div></div>
+  <div class="toggle"><div><b>Innings breaks</b><small>Innings and match-day changes</small></div>
+    <div class="sw" data-sport="cricket" data-ev="innings"></div></div>
+  <div class="toggle"><div><b>Result</b><small>Who won, by how much</small></div>
+    <div class="sw" data-sport="cricket" data-ev="final"></div></div>
+  <div class="toggle"><div><b>Fours &amp; sixes</b><small>Off by default — a T20 would buzz 30 times</small></div>
+    <div class="sw" data-sport="cricket" data-ev="boundary"></div></div>
   <div style="margin-top:14px">
     <h3 style="font-size:12px;color:var(--faint);letter-spacing:.6px;text-transform:uppercase;margin-bottom:7px">
       Regular score summary</h3>
@@ -140,8 +168,8 @@ a{color:var(--accent2)}
       <option value="30">Every 30 minutes while matches are live</option>
       <option value="60">Every hour while matches are live</option>
     </select>
-    <p class="note" style="margin-top:7px">Best for basketball, NFL and cricket chases, where the score moves
-      every few seconds and per-point alerts would be unbearable.</p>
+    <p class="note" style="margin-top:7px">A periodic score line for everything you follow that is live, on top of
+      the individual moments.</p>
   </div>
 </section>
 
@@ -150,7 +178,7 @@ a{color:var(--accent2)}
   <div id="live"><p class="note">Pick a league above to see its matches.</p></div>
 </section>
 
-<footer>Scores from ESPN's public feed · updates checked every ~60s</footer>
+<footer>Cricket &amp; football from ESPN's public feed · checked every 20s while your matches are live</footer>
 
 <script>
 const API = location.origin;
@@ -158,7 +186,12 @@ const UID_KEY = 'sportsUserId';
 let uid = localStorage.getItem(UID_KEY);
 if (!uid) { uid = (crypto.randomUUID ? crypto.randomUUID() : 'u' + Date.now() + Math.random().toString(16).slice(2)); localStorage.setItem(UID_KEY, uid); }
 
-let prefs = { leagues: [], teams: {}, events: { start: true, score: true, period: true, final: true }, digestMinutes: 0, enabled: true };
+let prefs = {
+  leagues: [], teams: {},
+  football: { start: true, goal: true, red: true, yellow: false, sub: true, break: true, other: true, final: true },
+  cricket: { start: true, wicket: true, batterMilestone: true, teamMilestone: true, bowlerMilestone: true, boundary: false, innings: true, final: true },
+  digestMinutes: 0, enabled: true,
+};
 let catalog = [];
 let subscribed = false;
 let reg = null;
@@ -243,7 +276,7 @@ function savePrefs() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: uid, prefs }),
       });
-      prefs = res.prefs;
+      prefs = { ...prefs, ...res.prefs };
     } catch (_) { /* retried on next change */ }
   }, 450);
 }
@@ -310,10 +343,11 @@ async function renderTeams() {
 
 function renderToggles() {
   document.querySelectorAll('.sw[data-ev]').forEach(el => {
-    const on = prefs.events[el.dataset.ev] !== false;
-    el.classList.toggle('on', on);
+    const sport = el.dataset.sport, kind = el.dataset.ev;
+    prefs[sport] = prefs[sport] || {};
+    el.classList.toggle('on', prefs[sport][kind] !== false);
     el.onclick = () => {
-      prefs.events[el.dataset.ev] = prefs.events[el.dataset.ev] === false;
+      prefs[sport][kind] = prefs[sport][kind] === false;
       renderToggles(); savePrefs();
     };
   });
@@ -403,7 +437,9 @@ navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.type ===
     catalog = (await api('/sports/leagues')).leagues;
     const got = await api('/sports/prefs?userId=' + encodeURIComponent(uid));
     subscribed = got.subscribed;
-    prefs = { ...prefs, ...got.prefs };
+    prefs = { ...prefs, ...got.prefs,
+      football: { ...prefs.football, ...(got.prefs.football || {}) },
+      cricket: { ...prefs.cricket, ...(got.prefs.cricket || {}) } };
     // Leagues the server knows about but that aren't in the catalog (custom adds)
     prefs.leagues.filter(id => !catalog.some(l => l.id === id))
       .forEach(id => catalog.push({ id, group: 'Added by me', label: id }));

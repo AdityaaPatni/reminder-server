@@ -45,6 +45,7 @@ app.get('/health', (_, res) => res.json({
   ok: true,
   reminders: store.reminders.length,
   sportsSubscribers: Object.keys(store.sportsSubs || {}).length,
+  liveMatches: sports.status().live,
 }));
 app.get('/vapid-public-key', (_, res) => res.json({ key: vapid.publicKey }));
 
@@ -146,7 +147,8 @@ cron.schedule('* * * * *', async () => {
 const sports = createSportsService({
   store,
   persist,
-  pollSeconds: Number(process.env.SPORTS_POLL_SECONDS || 60),
+  livePollSeconds: Number(process.env.SPORTS_LIVE_POLL_SECONDS || 20),
+  idlePollSeconds: Number(process.env.SPORTS_IDLE_POLL_SECONDS || 180),
 });
 sports.register(app);
 

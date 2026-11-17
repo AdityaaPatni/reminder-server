@@ -1,73 +1,101 @@
 'use strict';
 /**
- * Live sports updates over Web Push.
+ * Live cricket and football updates over Web Push.
  *
- * Polls ESPN's public scoreboard JSON for the leagues people actually follow,
- * diffs each match against the last snapshot, and pushes only the moments that
- * matter (kick-off, goal, wicket, half-time, full-time) plus an optional
- * periodic score digest.
+ * Two tiers of data:
+ *   1. Scoreboard (one request per league) — who is playing, the score, and the
+ *      pre -> live -> finished transitions.
+ *   2. Detail feed (one request per live match, see sportsDetail.js) — the
+ *      moments inside a match: goals with scorers, red cards, substitutions,
+ *      wickets, batting milestones.
  *
- * No API key is required. Nothing is installed on the phone: the browser's
- * push service wakes the service worker even when the page is closed.
+ * Tier 2 is preferred; if it fails the scoreboard still produces goal/wicket
+ * alerts on its own, so a bad request degrades instead of going silent.
+ *
+ * Polling speeds up to every 20s while a followed match is live and drops back
+ * to every 3 minutes when nothing is on.
  */
 
 const webpush = require('web-push');
+const detail = require('./sportsDetail');
 
 const ESPN = 'https://site.api.espn.com/apis/site/v2/sports';
 
-// Leagues verified against ESPN's scoreboard API. Users can also add any other
-// ESPN league by id (e.g. "cricket/8082") via /sports/validate.
 const LEAGUES = [
-  { id: 'soccer/eng.1',            group: 'Football',          label: 'Premier League' },
-  { id: 'soccer/esp.1',            group: 'Football',          label: 'LaLiga' },
-  { id: 'soccer/ita.1',            group: 'Football',          label: 'Serie A' },
-  { id: 'soccer/ger.1',            group: 'Football',          label: 'Bundesliga' },
-  { id: 'soccer/fra.1',            group: 'Football',          label: 'Ligue 1' },
-  { id: 'soccer/ned.1',            group: 'Football',          label: 'Eredivisie' },
-  { id: 'soccer/por.1',            group: 'Football',          label: 'Primeira Liga' },
-  { id: 'soccer/eng.2',            group: 'Football',          label: 'Championship (ENG)' },
-  { id: 'soccer/eng.fa',           group: 'Football',          label: 'FA Cup' },
-  { id: 'soccer/eng.league_cup',   group: 'Football',          label: 'Carabao Cup' },
-  { id: 'soccer/uefa.champions',   group: 'Football',          label: 'Champions League' },
-  { id: 'soccer/uefa.europa',      group: 'Football',          label: 'Europa League' },
-  { id: 'soccer/uefa.europa.conf', group: 'Football',          label: 'Conference League' },
-  { id: 'soccer/uefa.nations',     group: 'Football',          label: 'Nations League' },
-  { id: 'soccer/fifa.world',       group: 'Football',          label: 'FIFA World Cup' },
-  { id: 'soccer/fifa.worldq.uefa', group: 'Football',          label: 'World Cup Qualifying (UEFA)' },
-  { id: 'soccer/caf.nations',      group: 'Football',          label: 'Africa Cup of Nations' },
-  { id: 'soccer/ind.1',            group: 'Football',          label: 'Indian Super League' },
-  { id: 'soccer/usa.1',            group: 'Football',          label: 'MLS' },
-  { id: 'soccer/mex.1',            group: 'Football',          label: 'Liga MX' },
+  { id: 'soccer/eng.1',            group: 'Football',        label: 'Premier League' },
+  { id: 'soccer/esp.1',            group: 'Football',        label: 'LaLiga' },
+  { id: 'soccer/ita.1',            group: 'Football',        label: 'Serie A' },
+  { id: 'soccer/ger.1',            group: 'Football',        label: 'Bundesliga' },
+  { id: 'soccer/fra.1',            group: 'Football',        label: 'Ligue 1' },
+  { id: 'soccer/ned.1',            group: 'Football',        label: 'Eredivisie' },
+  { id: 'soccer/por.1',            group: 'Football',        label: 'Primeira Liga' },
+  { id: 'soccer/eng.2',            group: 'Football',        label: 'Championship (ENG)' },
+  { id: 'soccer/eng.fa',           group: 'Football',        label: 'FA Cup' },
+  { id: 'soccer/eng.league_cup',   group: 'Football',        label: 'Carabao Cup' },
+  { id: 'soccer/uefa.champions',   group: 'Football',        label: 'Champions League' },
+  { id: 'soccer/uefa.europa',      group: 'Football',        label: 'Europa League' },
+  { id: 'soccer/uefa.europa.conf', group: 'Football',        label: 'Conference League' },
+  { id: 'soccer/uefa.nations',     group: 'Football',        label: 'Nations League' },
+  { id: 'soccer/fifa.world',       group: 'Football',        label: 'FIFA World Cup' },
+  { id: 'soccer/fifa.worldq.uefa', group: 'Football',        label: 'World Cup Qualifying (UEFA)' },
+  { id: 'soccer/caf.nations',      group: 'Football',        label: 'Africa Cup of Nations' },
+  { id: 'soccer/ind.1',            group: 'Football',        label: 'Indian Super League' },
+  { id: 'soccer/usa.1',            group: 'Football',        label: 'MLS' },
+  { id: 'soccer/mex.1',            group: 'Football',        label: 'Liga MX' },
 
-  { id: 'cricket/8048',            group: 'Cricket',           label: 'IPL' },
-  { id: 'cricket/8039',            group: 'Cricket',           label: 'ICC Cricket World Cup' },
-  { id: 'cricket/8037',            group: 'Cricket',           label: 'ICC Champions Trophy' },
-  { id: 'cricket/8044',            group: 'Cricket',           label: 'Big Bash League' },
-  { id: 'cricket/8043',            group: 'Cricket',           label: 'Sheffield Shield' },
-  { id: 'cricket/8050',            group: 'Cricket',           label: 'Ranji Trophy' },
-  { id: 'cricket/8052',            group: 'Cricket',           label: 'County Championship' },
-  { id: 'cricket/8053',            group: 'Cricket',           label: 'T20 Blast (ENG)' },
-
-  { id: 'basketball/nba',          group: 'Basketball',        label: 'NBA' },
-  { id: 'basketball/wnba',         group: 'Basketball',        label: 'WNBA' },
-  { id: 'football/nfl',            group: 'American Football', label: 'NFL' },
-  { id: 'football/college-football',group: 'American Football', label: 'NCAA Football' },
-  { id: 'hockey/nhl',              group: 'Hockey',            label: 'NHL' },
-  { id: 'baseball/mlb',            group: 'Baseball',          label: 'MLB' },
+  { id: 'cricket/8048',            group: 'Cricket',         label: 'IPL' },
+  { id: 'cricket/8039',            group: 'Cricket',         label: 'ICC Cricket World Cup' },
+  { id: 'cricket/8037',            group: 'Cricket',         label: 'ICC Champions Trophy' },
+  { id: 'cricket/8044',            group: 'Cricket',         label: 'Big Bash League' },
+  { id: 'cricket/8043',            group: 'Cricket',         label: 'Sheffield Shield' },
+  { id: 'cricket/8050',            group: 'Cricket',         label: 'Ranji Trophy' },
+  { id: 'cricket/8052',            group: 'Cricket',         label: 'County Championship' },
+  { id: 'cricket/8053',            group: 'Cricket',         label: 'T20 Blast (ENG)' },
 ];
 
 const LEAGUE_BY_ID = new Map(LEAGUES.map(l => [l.id, l]));
 const labelFor = id => (LEAGUE_BY_ID.get(id) || {}).label || id;
+const sportOf = leagueId => (String(leagueId).startsWith('cricket/') ? 'cricket' : 'football');
+
+const FOOTBALL_KINDS = ['start', 'goal', 'red', 'yellow', 'sub', 'break', 'other', 'final'];
+const CRICKET_KINDS = ['start', 'wicket', 'batterMilestone', 'teamMilestone', 'bowlerMilestone', 'boundary', 'innings', 'final'];
+
+// When several moments land in the same poll cycle, the most important one gets
+// the notification title; the rest go in a second, quieter one.
+const PRIORITY = {
+  goal: 100, red: 90, final: 85, wicket: 80, batterMilestone: 70, bowlerMilestone: 65,
+  teamMilestone: 60, other: 55, start: 50, innings: 45, sub: 40, break: 35, boundary: 20, yellow: 15,
+};
 
 const DEFAULT_PREFS = {
-  leagues: [],            // ["soccer/eng.1", ...]
-  teams: {},              // { "soccer/eng.1": ["382"] } — empty means every match
-  events: { start: true, score: true, period: true, final: true },
-  digestMinutes: 0,       // 0 = off, else summary of live followed matches every N min
+  leagues: [],
+  teams: {},
+  football: { start: true, goal: true, red: true, yellow: false, sub: true, break: true, other: true, final: true },
+  cricket: { start: true, wicket: true, batterMilestone: true, teamMilestone: true, bowlerMilestone: true, boundary: false, innings: true, final: true },
+  digestMinutes: 0,
   enabled: true,
 };
 
-// ---------------------------------------------------------------- HTTP helper
+// v1 stored one flat { start, score, period, final } block.
+function migratePrefs(p = {}) {
+  const out = {
+    ...DEFAULT_PREFS,
+    ...p,
+    football: { ...DEFAULT_PREFS.football, ...(p.football || {}) },
+    cricket: { ...DEFAULT_PREFS.cricket, ...(p.cricket || {}) },
+  };
+  if (p.events && !p.football && !p.cricket) {
+    const e = p.events;
+    out.football = { ...out.football, start: e.start !== false, goal: e.score !== false, red: e.score !== false, break: e.period !== false, final: e.final !== false };
+    out.cricket = { ...out.cricket, start: e.start !== false, wicket: e.score !== false, innings: e.period !== false, final: e.final !== false };
+  }
+  delete out.events;
+  // Drop leagues from the old multi-sport catalogue (NBA, NFL, ...).
+  out.leagues = (out.leagues || []).filter(id => /^(soccer|cricket)\//.test(id));
+  return out;
+}
+
+/* ------------------------------------------------------------ HTTP helper */
 
 async function getJson(url, timeoutMs = 12000) {
   const ctl = new AbortController();
@@ -75,7 +103,7 @@ async function getJson(url, timeoutMs = 12000) {
   try {
     const res = await fetch(url, {
       signal: ctl.signal,
-      headers: { 'User-Agent': 'live-sports-push/1.0', Accept: 'application/json' },
+      headers: { 'User-Agent': 'live-sports-push/1.0', Accept: 'application/json', 'Accept-Encoding': 'gzip' },
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.json();
@@ -84,10 +112,10 @@ async function getJson(url, timeoutMs = 12000) {
   }
 }
 
-// ------------------------------------------------------------- normalisation
+/* ----------------------------------------------------------- scoreboard */
 
 function normalizeEvent(leagueId, ev) {
-  const sport = leagueId.split('/')[0];
+  const sport = sportOf(leagueId);
   const comp = (ev.competitions || [])[0] || {};
   const st = comp.status || ev.status || {};
   const type = st.type || {};
@@ -115,8 +143,8 @@ function normalizeEvent(leagueId, ev) {
     sport,
     name: ev.shortName || ev.name || teams.map(t => t.abbr).join(' v '),
     date: ev.date || comp.date || null,
-    state: type.state || 'pre',                                  // pre | in | post
-    desc: type.description || '',                                // "In Progress", "Halftime", ...
+    state: type.state || 'pre',
+    desc: type.description || '',
     detail: type.shortDetail || type.detail || type.description || '',
     clock: st.displayClock && st.displayClock !== "0'" ? st.displayClock : '',
     period: Number(st.period || 0),
@@ -127,15 +155,13 @@ function normalizeEvent(leagueId, ev) {
 
 async function fetchLeague(leagueId) {
   const json = await getJson(`${ESPN}/${leagueId}/scoreboard`);
-  // Out-of-season leagues return placeholder entries like [{}] — drop anything
-  // without an id and two named sides.
   return (json.events || [])
     .filter(ev => ev && ev.id)
     .map(ev => normalizeEvent(leagueId, ev))
     .filter(ev => ev.teams.length >= 2);
 }
 
-const liveCache = new Map(); // leagueId -> { at, events }
+const liveCache = new Map();
 
 async function leagueEvents(leagueId, maxAgeMs = 20000) {
   const hit = liveCache.get(leagueId);
@@ -145,29 +171,19 @@ async function leagueEvents(leagueId, maxAgeMs = 20000) {
   return events;
 }
 
-// ------------------------------------------------------------------ wording
+/* -------------------------------------------------------------- wording */
 
 function scoreline(ev) {
   const t = ev.teams;
   if (t.length < 2) return ev.name;
-  if (ev.sport === 'cricket') {
-    // ESPN already hands cricket a display string: "348 & 19/0 (5.1 ov)"
-    const parts = t.map(x => `${x.abbr} ${x.score || '—'}`.trim());
-    return parts.join('  |  ');
-  }
+  if (ev.sport === 'cricket') return t.map(x => `${x.abbr} ${x.score || '—'}`.trim()).join('  |  ');
   const home = t.find(x => x.home) || t[0];
   const away = t.find(x => !x.home) || t[1];
   return `${home.abbr} ${home.score || 0} – ${away.score || 0} ${away.abbr}`;
 }
 
-const matchup = ev => (ev.teams.length >= 2 ? ev.teams.map(t => t.abbr).join(' v ') : ev.name);
-
-const BREAK_RE = /half|end of|break|innings|interval|delay|suspend|rain|postpon|overtime|shootout|penalt/i;
-const isBreak = desc => !!desc && !/^in progress$/i.test(desc) && BREAK_RE.test(desc);
-
-function scoreKey(ev) {
-  return ev.teams.map(t => t.score).join('|');
-}
+const BREAK_RE = /half|break|innings|interval|delay|suspend|rain|postpon|extra time|shootout/i;
+const isBreak = d => !!d && !/^in progress$/i.test(d) && BREAK_RE.test(d);
 
 function snapshotOf(ev) {
   return {
@@ -189,57 +205,55 @@ function whoScored(prev, ev) {
 }
 
 /**
- * Compare a match against its previous snapshot and return the alerts worth
- * a buzz. Per-sport policy keeps this from becoming a firehose: football gets
- * every goal, cricket gets every wicket and innings, the high-scoring American
- * sports get period ends and the final only (running score goes in the digest).
+ * Scoreboard-level alerts. Start and final always come from here (they are
+ * reliable and cost nothing). Mid-match alerts are only produced when the
+ * match's detail feed is unavailable, so nothing is announced twice.
  */
-function diffEvent(prev, ev) {
+function diffEvent(prev, ev, enriched) {
   const out = [];
   const league = ev.leagueLabel;
 
   if (prev.state === 'pre' && ev.state === 'in') {
-    out.push({ kind: 'start', head: `🔴 Underway: ${matchup(ev)}`, sub: `${scoreline(ev)} · ${league}` });
+    out.push({
+      kind: 'start',
+      head: `🔴 ${ev.sport === 'cricket' ? 'Play underway' : 'Kick-off'}: ${ev.name}`,
+      sub: `${scoreline(ev)} · ${league}`,
+    });
   }
 
-  if (prev.state === 'in' && ev.state === 'in') {
-    if (ev.sport === 'soccer' && scoreKey(ev) !== prev.scores.join('|')) {
+  if (!enriched && prev.state === 'in' && ev.state === 'in') {
+    if (ev.sport === 'football' && ev.teams.map(t => t.score).join('|') !== prev.scores.join('|')) {
       const scorer = whoScored(prev, ev);
-      out.push({
-        kind: 'score',
-        head: `⚽ ${scoreline(ev)}`,
-        sub: `${scorer ? 'Goal — ' + scorer : 'Goal'}${ev.clock ? ' ' + ev.clock : ''} · ${league}`,
-      });
+      out.push({ kind: 'goal', head: `⚽ ${scoreline(ev)}`, sub: `${scorer ? 'Goal — ' + scorer : 'Goal'}${ev.clock ? ' ' + ev.clock : ''} · ${league}` });
     }
-
     if (ev.sport === 'cricket') {
       const gotWicket = ev.teams.some((t, i) => {
         const before = prev.wickets ? prev.wickets[i] : null;
         return t.wickets !== null && before !== null && before !== undefined && t.wickets > before;
       });
-      if (gotWicket) {
-        out.push({ kind: 'score', head: `🏏 Wicket! ${scoreline(ev)}`, sub: `${ev.detail || ''} · ${league}`.trim() });
-      } else if (ev.period !== prev.period && ev.period > 0) {
-        out.push({ kind: 'period', head: `🏏 Innings ${ev.period}: ${scoreline(ev)}`, sub: league });
-      }
+      if (gotWicket) out.push({ kind: 'wicket', head: `🏏 Wicket! ${scoreline(ev)}`, sub: `${ev.detail || ''} · ${league}`.trim() });
+      else if (ev.period !== prev.period && ev.period > 0) out.push({ kind: 'innings', head: `🏏 Innings ${ev.period}: ${scoreline(ev)}`, sub: league });
     }
-
-    const alreadyFlaggedBreak = out.some(a => a.kind === 'period');
-    if (!alreadyFlaggedBreak && ev.desc !== prev.desc && isBreak(ev.desc)) {
-      out.push({ kind: 'period', head: `⏸ ${ev.desc}: ${scoreline(ev)}`, sub: league });
+    const flagged = out.some(a => a.kind === 'innings' || a.kind === 'break');
+    if (!flagged && ev.desc !== prev.desc && isBreak(ev.desc)) {
+      out.push({ kind: ev.sport === 'cricket' ? 'innings' : 'break', head: `⏸ ${ev.desc}: ${scoreline(ev)}`, sub: league });
     }
   }
 
   if (prev.state !== 'post' && ev.state === 'post') {
-    out.push({ kind: 'final', head: `🏁 ${scoreline(ev)}`, sub: `${ev.detail || 'Final'} · ${league}` });
+    out.push({
+      kind: 'final',
+      head: `🏁 ${scoreline(ev)}`,
+      sub: `${ev.summary || ev.detail || 'Finished'} · ${league}`,
+    });
   }
 
   return out;
 }
 
-// --------------------------------------------------------------- team lists
+/* ----------------------------------------------------------- team lists */
 
-const teamCache = new Map(); // leagueId -> { at, teams }
+const teamCache = new Map();
 
 async function leagueTeams(leagueId) {
   const hit = teamCache.get(leagueId);
@@ -249,16 +263,12 @@ async function leagueTeams(leagueId) {
   try {
     const json = await getJson(`${ESPN}/${leagueId}/teams`);
     const list = (((json.sports || [])[0] || {}).leagues || [])[0] || {};
-    teams = (list.teams || [])
-      .map(w => w.team || w)
+    teams = (list.teams || []).map(w => w.team || w)
       .map(t => ({ id: String(t.id), abbr: t.abbreviation || t.shortDisplayName || '', name: t.displayName || t.name, logo: t.logo || '' }));
-  } catch {
-    teams = [];
-  }
+  } catch { teams = []; }
 
   if (!teams.length) {
-    // Cricket (and some cup competitions) have no /teams endpoint — fall back to
-    // whoever appears on the current scoreboard.
+    // Cricket has no /teams endpoint — use whoever is on the current scoreboard.
     try {
       const events = await leagueEvents(leagueId, 60 * 60 * 1000);
       const seen = new Map();
@@ -272,29 +282,34 @@ async function leagueTeams(leagueId) {
   return teams;
 }
 
-// -------------------------------------------------------------- the poller
+/* ------------------------------------------------------------- service */
 
-function createSportsService({ store, persist, pollSeconds = 60 }) {
-  store.sportsSubs = store.sportsSubs || {};   // userId -> { subscription, prefs, lastDigest }
-  store.sportsSnap = store.sportsSnap || {};   // leagueId -> { eventId -> snapshot }
+function createSportsService({ store, persist, livePollSeconds = 20, idlePollSeconds = 180, maxDetailPerCycle = 10 }) {
+  store.sportsSubs = store.sportsSubs || {};
+  store.sportsSnap = store.sportsSnap || {};
+  store.sportsDetail = store.sportsDetail || {};   // eventId -> { sport, at, state }
 
-  const followedLeagues = () => {
+  let lastLiveCount = 0;
+  let detailCursor = 0;                            // round-robin when many matches are live
+
+  const activeSubs = () => Object.entries(store.sportsSubs)
+    .filter(([, r]) => r && r.subscription && (r.prefs || {}).enabled !== false)
+    .map(([id, r]) => [id, migratePrefs(r.prefs || {}), r]);
+
+  function followedLeagues() {
     const set = new Set();
-    for (const rec of Object.values(store.sportsSubs)) {
-      if (!rec || !rec.prefs || rec.prefs.enabled === false) continue;
-      (rec.prefs.leagues || []).forEach(l => set.add(l));
-    }
+    for (const [, prefs] of activeSubs()) (prefs.leagues || []).forEach(l => set.add(l));
     return [...set];
-  };
+  }
 
   function follows(prefs, ev) {
     if (!(prefs.leagues || []).includes(ev.league)) return false;
     const picked = (prefs.teams || {})[ev.league] || [];
-    if (!picked.length) return true;
-    return ev.teams.some(t => picked.includes(t.id));
+    return !picked.length || ev.teams.some(t => picked.includes(t.id));
   }
 
-  const wants = (prefs, kind) => (prefs.events || DEFAULT_PREFS.events)[kind] !== false;
+  const anyoneFollows = ev => activeSubs().some(([, prefs]) => follows(prefs, ev));
+  const wants = (prefs, ev, kind) => (prefs[ev.sport] || {})[kind] !== false;
 
   async function send(userId, payload) {
     const rec = store.sportsSubs[userId];
@@ -304,180 +319,213 @@ function createSportsService({ store, persist, pollSeconds = 60 }) {
       return true;
     } catch (e) {
       console.error('[sports] push failed', e.statusCode || e.message, userId);
-      if (e.statusCode === 404 || e.statusCode === 410) {
-        delete store.sportsSubs[userId];
-        persist();
-      }
+      if (e.statusCode === 404 || e.statusCode === 410) { delete store.sportsSubs[userId]; persist(); }
       return false;
     }
   }
 
-  let polling = false;
+  /** Fetch a live match's detail feed and turn it into alerts. */
+  async function enrich(ev) {
+    const key = ev.id;
+    const saved = store.sportsDetail[key];
+    const prevState = saved && saved.state;
+    try {
+      if (ev.sport === 'football') {
+        const keyEvents = await detail.footballKeyEvents(ev.league, ev.id);
+        const r = detail.diffFootball(ev, prevState, scoreline(ev), keyEvents);
+        store.sportsDetail[key] = {
+          sport: 'football', at: Date.now(), state: r.state,
+          finalAnnounced: (saved && saved.finalAnnounced) || r.alerts.some(a => a.kind === 'final'),
+        };
+        return r.alerts;
+      }
+      const { items, pageCount } = await detail.cricketBalls(ev.league, ev.id, prevState && prevState.page);
+      const r = detail.diffCricket(ev, prevState, items, pageCount);
+      store.sportsDetail[key] = { sport: 'cricket', at: Date.now(), state: r.state };
+      return r.alerts;
+    } catch (e) {
+      console.error('[sports] detail failed', ev.league, ev.id, e.message);
+      return null;                                 // null = fall back to scoreboard diffing
+    }
+  }
+
+  let running = false;
 
   async function poll() {
-    if (polling) return;
-    polling = true;
+    if (running) return { live: lastLiveCount };
+    running = true;
     try {
       const leagues = followedLeagues();
-      if (!leagues.length) return;
+      if (!leagues.length) { lastLiveCount = 0; return { live: 0 }; }
 
-      const alertsByLeague = {};   // leagueId -> [{ ev, alerts }]
-      const liveByLeague = {};     // leagueId -> events (for digests)
-      let dirty = false;
-
+      const byLeague = {};
       for (const leagueId of leagues) {
-        let events;
         try {
-          events = await fetchLeague(leagueId);
+          const events = await fetchLeague(leagueId);
           liveCache.set(leagueId, { at: Date.now(), events });
+          byLeague[leagueId] = events;
         } catch (e) {
-          console.error('[sports] fetch failed', leagueId, e.message);
-          continue;
+          console.error('[sports] scoreboard failed', leagueId, e.message);
         }
-        liveByLeague[leagueId] = events;
+      }
 
+      // Which live matches does anybody actually follow?
+      const liveFollowed = [];
+      for (const events of Object.values(byLeague)) {
+        for (const ev of events) if (ev.state === 'in' && anyoneFollows(ev)) liveFollowed.push(ev);
+      }
+      lastLiveCount = liveFollowed.length;
+
+      // Detail feeds, capped per cycle and rotated so nothing starves.
+      const enrichedAlerts = new Map();            // eventId -> alerts[]
+      if (liveFollowed.length) {
+        const order = [];
+        for (let i = 0; i < liveFollowed.length; i++) order.push(liveFollowed[(detailCursor + i) % liveFollowed.length]);
+        detailCursor = (detailCursor + Math.min(maxDetailPerCycle, liveFollowed.length)) % Math.max(1, liveFollowed.length);
+        for (const ev of order.slice(0, maxDetailPerCycle)) {
+          const alerts = await enrich(ev);
+          if (alerts !== null) enrichedAlerts.set(ev.id, alerts);
+        }
+      }
+
+      // Scoreboard-level diffing (start / final always, mid-match as fallback).
+      const perEvent = [];                         // { ev, alerts }
+      for (const [leagueId, events] of Object.entries(byLeague)) {
         const seeded = !!store.sportsSnap[leagueId];
         const prevSnaps = store.sportsSnap[leagueId] || {};
         const nextSnaps = {};
-        const found = [];
-
         for (const ev of events) {
           const prev = prevSnaps[ev.id];
           nextSnaps[ev.id] = snapshotOf(ev);
-          // First time we see a league (fresh deploy, new follow) we only record
-          // the baseline — otherwise everyone gets a burst of stale "goals".
-          if (seeded && prev) {
-            const alerts = diffEvent(prev, ev);
-            if (alerts.length) found.push({ ev, alerts });
+          const fromDetail = enrichedAlerts.get(ev.id) || [];
+          let fromBoard = seeded && prev ? diffEvent(prev, ev, enrichedAlerts.has(ev.id)) : [];
+          if ((store.sportsDetail[ev.id] || {}).finalAnnounced) {
+            fromBoard = fromBoard.filter(a => a.kind !== 'final');
           }
+          const alerts = [...fromBoard, ...fromDetail];
+          if (alerts.length) perEvent.push({ ev, alerts });
         }
-
         store.sportsSnap[leagueId] = nextSnaps;
-        dirty = true;
-        if (found.length) alertsByLeague[leagueId] = found;
       }
 
-      // Fan out to each subscriber.
-      for (const [userId, rec] of Object.entries(store.sportsSubs)) {
-        if (!rec || rec.prefs?.enabled === false) continue;
-        const prefs = { ...DEFAULT_PREFS, ...(rec.prefs || {}) };
+      // Fan out.
+      for (const [userId, prefs, rec] of activeSubs()) {
         const mine = [];
+        for (const { ev, alerts } of perEvent) {
+          if (!follows(prefs, ev)) continue;
+          const keep = alerts.filter(a => wants(prefs, ev, a.kind));
+          if (keep.length) mine.push({ ev, alerts: keep });
+        }
 
-        for (const leagueId of prefs.leagues || []) {
-          for (const { ev, alerts } of alertsByLeague[leagueId] || []) {
-            if (!follows(prefs, ev)) continue;
-            const keep = alerts.filter(a => wants(prefs, a.kind));
-            if (keep.length) mine.push({ ev, alerts: keep });
+        for (const { ev, alerts } of mine.slice(0, 6)) {
+          const ranked = [...alerts].sort((x, y) => (PRIORITY[y.kind] || 0) - (PRIORITY[x.kind] || 0));
+          const top = ranked[0];
+          await send(userId, {
+            kind: 'sports', title: top.head, body: top.sub,
+            tag: 'match:' + ev.id, url: '/sports.html',
+          });
+          const rest = ranked.slice(1);
+          if (rest.length) {
+            await send(userId, {
+              kind: 'sports',
+              title: rest.length === 1 ? rest[0].head : `${rest.length} more · ${ev.name}`,
+              body: rest.length === 1 ? rest[0].sub : rest.map(r => r.head).join('\n'),
+              tag: 'match:' + ev.id + ':more',
+              url: '/sports.html',
+            });
           }
         }
-
-        // One notification per match (newest state wins), at most 3 per cycle.
-        for (const { ev, alerts } of mine.slice(0, 3)) {
-          const a = alerts[alerts.length - 1];
-          const extra = alerts.length > 1 ? alerts.slice(0, -1).map(x => x.head).join(' · ') : '';
+        if (mine.length > 6) {
           await send(userId, {
             kind: 'sports',
-            title: a.head,
-            body: extra ? `${a.sub}\n${extra}` : a.sub,
-            tag: 'match:' + ev.id,
-            url: '/sports.html',
-          });
-        }
-        if (mine.length > 3) {
-          await send(userId, {
-            kind: 'sports',
-            title: `+${mine.length - 3} more updates`,
-            body: mine.slice(3).map(m => m.alerts[m.alerts.length - 1].head).join('\n'),
+            title: `+${mine.length - 6} more updates`,
+            body: mine.slice(6).map(m => m.alerts[m.alerts.length - 1].head).join('\n'),
             tag: 'sports:overflow',
             url: '/sports.html',
           });
         }
 
-        // Periodic score digest for the sports whose running score changes
-        // constantly (basketball, cricket chases, American football).
         const every = Number(prefs.digestMinutes || 0);
-        if (every > 0) {
-          const due = !rec.lastDigest || Date.now() - rec.lastDigest >= every * 60 * 1000;
-          if (due) {
-            const live = [];
-            for (const leagueId of prefs.leagues || []) {
-              for (const ev of liveByLeague[leagueId] || []) {
-                if (ev.state === 'in' && follows(prefs, ev)) live.push(ev);
-              }
-            }
-            if (live.length) {
-              const lines = live.slice(0, 5).map(ev => `${scoreline(ev)}${ev.clock ? ' (' + ev.clock + ')' : ''}`);
-              const ok = await send(userId, {
-                kind: 'sports',
-                title: live.length === 1 ? scoreline(live[0]) : `${live.length} matches live`,
-                body: live.length === 1 ? `${live[0].detail} · ${live[0].leagueLabel}` : lines.join('\n'),
-                tag: 'sports:digest',
-                url: '/sports.html',
-              });
-              if (ok) { rec.lastDigest = Date.now(); dirty = true; }
-            }
+        if (every > 0 && (!rec.lastDigest || Date.now() - rec.lastDigest >= every * 60 * 1000)) {
+          const live = liveFollowed.filter(ev => follows(prefs, ev));
+          if (live.length) {
+            const ok = await send(userId, {
+              kind: 'sports',
+              title: live.length === 1 ? scoreline(live[0]) : `${live.length} matches live`,
+              body: live.length === 1
+                ? `${live[0].detail} · ${live[0].leagueLabel}`
+                : live.slice(0, 5).map(ev => `${scoreline(ev)}${ev.clock ? ' (' + ev.clock + ')' : ''}`).join('\n'),
+              tag: 'sports:digest',
+              url: '/sports.html',
+            });
+            if (ok) rec.lastDigest = Date.now();
           }
         }
       }
 
-      if (dirty) {
-        // Drop snapshots for leagues nobody follows any more.
-        for (const leagueId of Object.keys(store.sportsSnap)) {
-          if (!leagues.includes(leagueId)) delete store.sportsSnap[leagueId];
-        }
-        persist();
+      // Housekeeping: forget unfollowed leagues and finished matches.
+      for (const leagueId of Object.keys(store.sportsSnap)) {
+        if (!leagues.includes(leagueId)) delete store.sportsSnap[leagueId];
       }
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      for (const [id, d] of Object.entries(store.sportsDetail)) {
+        if (!d || !d.at || d.at < cutoff) delete store.sportsDetail[id];
+      }
+      persist();
+      return { live: lastLiveCount };
     } catch (e) {
       console.error('[sports] poll error', e.message);
+      return { live: lastLiveCount };
     } finally {
-      polling = false;
+      running = false;
     }
   }
 
-  function start() {
-    setInterval(poll, Math.max(20, pollSeconds) * 1000);
-    setTimeout(poll, 5000);
-    console.log(`[sports] poller every ${pollSeconds}s`);
+  let timer = null;
+  function loop() {
+    const wait = (lastLiveCount > 0 ? livePollSeconds : idlePollSeconds) * 1000;
+    timer = setTimeout(async () => { await poll(); loop(); }, wait);
+    if (timer.unref) timer.unref();
   }
 
-  // ----------------------------------------------------------------- routes
+  function start() {
+    setTimeout(async () => { await poll(); loop(); }, 4000);
+    console.log(`[sports] polling every ${livePollSeconds}s while live, ${idlePollSeconds}s otherwise`);
+  }
+
+  /* ---------------------------------------------------------- routes */
 
   function register(app) {
-    app.get('/sports/leagues', (_req, res) => res.json({ leagues: LEAGUES }));
+    app.get('/sports/leagues', (_req, res) => res.json({ leagues: LEAGUES, kinds: { football: FOOTBALL_KINDS, cricket: CRICKET_KINDS } }));
 
     app.get('/sports/teams', async (req, res) => {
       const league = String(req.query.league || '');
       if (!league) return res.status(400).json({ error: 'missing league' });
-      try {
-        res.json({ league, teams: await leagueTeams(league) });
-      } catch (e) {
-        res.status(502).json({ error: e.message });
-      }
+      try { res.json({ league, teams: await leagueTeams(league) }); }
+      catch (e) { res.status(502).json({ error: e.message }); }
     });
 
     app.get('/sports/live', async (req, res) => {
       const ids = String(req.query.leagues || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 12);
       if (!ids.length) return res.json({ events: [] });
       const out = [];
-      await Promise.all(ids.map(async id => {
-        try { out.push(...(await leagueEvents(id))); } catch { /* skip league */ }
-      }));
+      await Promise.all(ids.map(async id => { try { out.push(...(await leagueEvents(id))); } catch { /* skip */ } }));
       const rank = { in: 0, pre: 1, post: 2 };
       out.sort((a, b) => (rank[a.state] - rank[b.state]) || String(a.date).localeCompare(String(b.date)));
-      res.json({ events: out, at: new Date().toISOString() });
+      res.json({ events: out, at: new Date().toISOString(), livePolling: lastLiveCount > 0 });
     });
 
     app.get('/sports/validate', async (req, res) => {
       const league = String(req.query.league || '').replace(/^\/+|\/+$/g, '');
-      if (!/^[a-z-]+\/[a-z0-9._-]+$/i.test(league)) return res.status(400).json({ ok: false, error: 'expected sport/league, e.g. cricket/8048' });
+      if (!/^(soccer|cricket)\/[a-z0-9._-]+$/i.test(league)) {
+        return res.status(400).json({ ok: false, error: 'expected soccer/<slug> or cricket/<id>, e.g. cricket/8082' });
+      }
       try {
         const json = await getJson(`${ESPN}/${league}/scoreboard`);
         const name = ((json.leagues || [])[0] || {}).name;
         if (!name) return res.status(404).json({ ok: false, error: 'no such league' });
-        res.json({ ok: true, league, label: name, events: (json.events || []).length });
-      } catch (e) {
-        res.status(404).json({ ok: false, error: e.message });
-      }
+        res.json({ ok: true, league, label: name, group: sportOf(league) === 'cricket' ? 'Cricket' : 'Football' });
+      } catch (e) { res.status(404).json({ ok: false, error: e.message }); }
     });
 
     app.post('/sports/subscribe', (req, res) => {
@@ -487,7 +535,7 @@ function createSportsService({ store, persist, pollSeconds = 60 }) {
       store.sportsSubs[userId] = {
         ...existing,
         subscription,
-        prefs: { ...DEFAULT_PREFS, ...(existing.prefs || {}), ...(prefs || {}) },
+        prefs: migratePrefs({ ...(existing.prefs || {}), ...(prefs || {}) }),
       };
       persist();
       res.json({ ok: true, prefs: store.sportsSubs[userId].prefs });
@@ -498,14 +546,17 @@ function createSportsService({ store, persist, pollSeconds = 60 }) {
       if (!userId) return res.status(400).json({ error: 'missing userId' });
       const rec = store.sportsSubs[userId];
       if (!rec) return res.status(404).json({ error: 'not subscribed' });
-      rec.prefs = { ...DEFAULT_PREFS, ...(rec.prefs || {}), ...(prefs || {}) };
+      const merged = { ...(rec.prefs || {}), ...(prefs || {}) };
+      if (prefs && prefs.football) merged.football = { ...((rec.prefs || {}).football || {}), ...prefs.football };
+      if (prefs && prefs.cricket) merged.cricket = { ...((rec.prefs || {}).cricket || {}), ...prefs.cricket };
+      rec.prefs = migratePrefs(merged);
       persist();
       res.json({ ok: true, prefs: rec.prefs });
     });
 
     app.get('/sports/prefs', (req, res) => {
       const rec = store.sportsSubs[String(req.query.userId || '')];
-      res.json({ subscribed: !!rec, prefs: rec ? rec.prefs : DEFAULT_PREFS });
+      res.json({ subscribed: !!rec, prefs: rec ? migratePrefs(rec.prefs || {}) : DEFAULT_PREFS });
     });
 
     app.post('/sports/unsubscribe', (req, res) => {
@@ -519,18 +570,21 @@ function createSportsService({ store, persist, pollSeconds = 60 }) {
       if (!userId || !store.sportsSubs[userId]) return res.status(404).json({ error: 'not subscribed' });
       const ok = await send(userId, {
         kind: 'sports',
-        title: '✅ Live sports updates are on',
-        body: 'This is how goals, wickets and final scores will arrive — even with the page closed.',
+        title: '✅ Live updates are on',
+        body: 'Goals, red cards, subs, wickets and milestones will arrive like this — with the page closed.',
         tag: 'sports:test',
         url: '/sports.html',
       });
       res.json({ ok });
     });
 
-    app.post('/sports/poll-now', async (_req, res) => { await poll(); res.json({ ok: true }); });
+    app.post('/sports/poll-now', async (_req, res) => res.json({ ok: true, ...(await poll()) }));
   }
 
-  return { register, start, poll, leagueEvents, leagueTeams };
+  return { register, start, poll, leagueEvents, leagueTeams, status: () => ({ live: lastLiveCount }) };
 }
 
-module.exports = { createSportsService, LEAGUES, normalizeEvent, diffEvent, snapshotOf, scoreline, DEFAULT_PREFS };
+module.exports = {
+  createSportsService, LEAGUES, FOOTBALL_KINDS, CRICKET_KINDS,
+  normalizeEvent, diffEvent, snapshotOf, scoreline, migratePrefs, DEFAULT_PREFS,
+};
