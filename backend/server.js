@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const webpush = require('web-push');
 const cron = require('node-cron');
+const { createSportsService } = require('./sports');
 const fs = require('fs');
 const path = require('path');
 
@@ -29,7 +30,7 @@ webpush.setVapidDetails('mailto:adityapatni.patni@gmail.com', vapid.publicKey, v
 
 // Persistent storage
 const DATA_PATH = path.join(__dirname, '.data');
-let store = { subs: {}, reminders: [] };
+let store = { subs: {}, reminders: [], sportsSubs: {}, sportsSnap: {} };
 if (fs.existsSync(DATA_PATH)) {
   try { store = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8')); } catch {}
 }
@@ -40,7 +41,11 @@ function persist() {
 const REPEAT_INTERVAL = 2 * 60 * 1000; // re-push every 2 minutes until acknowledged
 const MAX_REPEAT_HOURS = 1;             // stop after 1 hour regardless
 
-app.get('/health', (_, res) => res.json({ ok: true, reminders: store.reminders.length }));
+app.get('/health', (_, res) => res.json({
+  ok: true,
+  reminders: store.reminders.length,
+  sportsSubscribers: Object.keys(store.sportsSubs || {}).length,
+}));
 app.get('/vapid-public-key', (_, res) => res.json({ key: vapid.publicKey }));
 
 app.post('/subscribe', (req, res) => {
@@ -137,9 +142,18 @@ cron.schedule('* * * * *', async () => {
   }
 });
 
+// Live sports updates (ESPN polling -> Web Push)
+const sports = createSportsService({
+  store,
+  persist,
+  pollSeconds: Number(process.env.SPORTS_POLL_SECONDS || 60),
+});
+sports.register(app);
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Reminder push server on port ${PORT}`);
+  console.log(`Reminder + live sports push server on port ${PORT}`);
+  sports.start();
   const selfUrl = process.env.RENDER_EXTERNAL_URL;
   if (selfUrl) {
     setInterval(() => fetch(selfUrl + '/health').catch(() => {}), 10 * 60 * 1000);
