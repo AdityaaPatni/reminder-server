@@ -18,6 +18,7 @@
 
 const webpush = require('web-push');
 const detail = require('./sportsDetail');
+const { createDiscovery } = require('./discover');
 
 const ESPN = 'https://site.api.espn.com/apis/site/v2/sports';
 
@@ -56,7 +57,8 @@ const LEAGUES = [
 ];
 
 const LEAGUE_BY_ID = new Map(LEAGUES.map(l => [l.id, l]));
-const labelFor = id => (LEAGUE_BY_ID.get(id) || {}).label || id;
+const DISCOVERED_LABELS = new Map();            // filled in by discovery
+const labelFor = id => (LEAGUE_BY_ID.get(id) || {}).label || DISCOVERED_LABELS.get(id) || id;
 const sportOf = leagueId => {
   const s = String(leagueId);
   if (s.startsWith('cricket/')) return 'cricket';
@@ -83,7 +85,8 @@ const DEFAULT_PREFS = {
   football: { start: true, goal: true, red: true, yellow: false, sub: true, break: true, other: true, final: true },
   cricket: { start: true, wicket: true, batterMilestone: true, teamMilestone: true, bowlerMilestone: true, boundary: false, innings: true, final: true },
   f1: { start: true, lead: true, driverPosition: true, final: true, race: true, sprint: true, qualifying: true, practice: false },
-  teamMode: {},        // league -> 'all' | 'only' | 'except'
+  teamMode: {},                              // league -> 'all' | 'only' | 'except'
+  follow: { cricket: [], football: [] },     // team ids followed across every competition
   digestMinutes: 0,
   enabled: true,
 };
@@ -97,6 +100,10 @@ function migratePrefs(p = {}) {
     cricket: { ...DEFAULT_PREFS.cricket, ...(p.cricket || {}) },
     f1: { ...DEFAULT_PREFS.f1, ...(p.f1 || {}) },
     teamMode: { ...(p.teamMode || {}) },
+    follow: {
+      cricket: [...((p.follow || {}).cricket || [])].map(String),
+      football: [...((p.follow || {}).football || [])].map(String),
+    },
   };
   if (p.events && !p.football && !p.cricket) {
     const e = p.events;
@@ -453,6 +460,7 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
   store.sportsSubs = store.sportsSubs || {};
   store.sportsSnap = store.sportsSnap || {};
   store.sportsDetail = store.sportsDetail || {};   // eventId -> { sport, at, state }
+  const discovery = createDiscovery({ store, persist });
 
   let lastLiveCount = 0;
   let detailCursor = 0;                            // round-robin when many matches are live
@@ -461,13 +469,34 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
     .filter(([, r]) => r && r.subscription && (r.prefs || {}).enabled !== false)
     .map(([id, r]) => [id, migratePrefs(r.prefs || {}), r]);
 
-  function followedLeagues() {
+  function followedTeamIds(sport) {
+    const set = new Set();
+    for (const [, prefs] of activeSubs()) ((prefs.follow || {})[sport] || []).forEach(id => set.add(String(id)));
+    return [...set];
+  }
+
+  async function followedLeagues() {
     const set = new Set();
     for (const [, prefs] of activeSubs()) (prefs.leagues || []).forEach(l => set.add(l));
+
+    // Teams are followed across every competition, so ask discovery which
+    // series currently hold one of their matches.
+    for (const [sport, espnSport] of [['cricket', 'cricket'], ['football', 'soccer']]) {
+      const ids = followedTeamIds(sport);
+      if (!ids.length) continue;
+      try {
+        for (const comp of await discovery.competitions(espnSport)) DISCOVERED_LABELS.set(comp.id, comp.label);
+        (await discovery.leaguesForTeams(espnSport, ids)).forEach(l => set.add(l));
+      } catch (e) {
+        console.error('[sports] discovery failed', sport, e.message);
+      }
+    }
     return [...set];
   }
 
   function follows(prefs, ev) {
+    const byTeam = (prefs.follow || {})[ev.sport] || [];
+    if (byTeam.length && (ev.teams || []).some(t => byTeam.includes(String(t.id)))) return true;
     if (!(prefs.leagues || []).includes(ev.league)) return false;
     if (ev.sport === 'f1') return true;            // a session involves every driver
     const picked = (prefs.teams || {})[ev.league] || [];
@@ -540,7 +569,7 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
     if (running) return { live: lastLiveCount };
     running = true;
     try {
-      const leagues = followedLeagues();
+      const leagues = await followedLeagues();
       if (!leagues.length) { lastLiveCount = 0; return { live: 0 }; }
 
       const byLeague = {};
@@ -772,6 +801,67 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
       res.json({ ok });
     });
 
+    // Search the team directory (built from every competition seen recently).
+    app.get('/sports/search-teams', async (req, res) => {
+      const sport = String(req.query.sport || 'cricket') === 'football' ? 'football' : 'cricket';
+      const espnSport = sport === 'cricket' ? 'cricket' : 'soccer';
+      try { await discovery.competitions(espnSport); } catch { /* use what we have */ }
+      res.json({ sport, teams: discovery.directory(sport, req.query.q || '', Number(req.query.limit) || 60) });
+    });
+
+    // Every competition with matches in the next couple of weeks — tours and
+    // one-off series included.
+    app.get('/sports/series', async (req, res) => {
+      const sport = String(req.query.sport || 'cricket') === 'football' ? 'football' : 'cricket';
+      const espnSport = sport === 'cricket' ? 'cricket' : 'soccer';
+      try {
+        const comps = await discovery.competitions(espnSport);
+        comps.forEach(c => DISCOVERED_LABELS.set(c.id, c.label));
+        res.json({
+          sport,
+          series: comps
+            .map(c => ({
+              id: c.id, label: c.label, matches: c.events.length,
+              live: c.events.filter(e => e.state === 'in').length,
+              teams: [...new Set(c.events.flatMap(e => e.teams.map(t => t.abbr)))].slice(0, 6),
+            }))
+            .sort((a, b) => b.live - a.live || b.matches - a.matches),
+        });
+      } catch (e) { res.status(502).json({ error: e.message }); }
+    });
+
+    // Everything one subscriber follows, by league or by team.
+    app.get('/sports/my-board', async (req, res) => {
+      const userId = String(req.query.userId || '');
+      const rec = store.sportsSubs[userId];
+      const prefs = migratePrefs(rec ? rec.prefs || {} : (() => {
+        try { return JSON.parse(String(req.query.prefs || '{}')); } catch { return {}; }
+      })());
+
+      const ids = new Set(prefs.leagues || []);
+      for (const [sport, espnSport] of [['cricket', 'cricket'], ['football', 'soccer']]) {
+        const teams = (prefs.follow || {})[sport] || [];
+        if (!teams.length) continue;
+        try {
+          for (const comp of await discovery.competitions(espnSport)) DISCOVERED_LABELS.set(comp.id, comp.label);
+          (await discovery.leaguesForTeams(espnSport, teams)).forEach(l => ids.add(l));
+        } catch { /* skip */ }
+      }
+
+      const out = [];
+      await Promise.all([...ids].slice(0, 20).map(async id => {
+        try { out.push(...(await leagueEvents(id))); } catch { /* skip */ }
+      }));
+
+      const mine = out.filter(ev => follows(prefs, ev));
+      const rank = { in: 0, pre: 1, post: 2 };
+      mine.sort((a, b) => (rank[a.state] - rank[b.state]) || String(a.date).localeCompare(String(b.date)));
+      res.json({
+        events: mine.slice(0, 40).map(ev => ({ ...ev, line: scoreline(ev) })),
+        at: new Date().toISOString(),
+      });
+    });
+
     app.post('/sports/poll-now', async (_req, res) => res.json({ ok: true, ...(await poll()) }));
   }
 
@@ -779,7 +869,7 @@ function createSportsService({ store, persist, livePollSeconds = 20, idlePollSec
 }
 
 module.exports = {
-  createSportsService, LEAGUES, FOOTBALL_KINDS, CRICKET_KINDS, F1_KINDS, F1_SESSIONS,
+  createSportsService, LEAGUES, DISCOVERED_LABELS, FOOTBALL_KINDS, CRICKET_KINDS, F1_KINDS, F1_SESSIONS,
   normalizeF1, diffF1, podium,
   normalizeEvent, diffEvent, snapshotOf, scoreline, migratePrefs, DEFAULT_PREFS,
 };

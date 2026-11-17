@@ -78,12 +78,27 @@ When two things happen inside one poll, the more important one gets the notifica
 Updates for the same match reuse one notification slot, so your lock screen shows the
 current state instead of a stack of stale scores.
 
+### Following teams (the main way in)
+
+Search a team and you get **its matches wherever they are** — a bilateral tour, a World Cup,
+a franchise league — without knowing which competition they sit in.
+
+This works because the fixed league list can never cover cricket: every tour
+("India tour of New Zealand 2026/27"), A-team series and women's competition gets its own
+ESPN id as it is created. `backend/discover.js` reads ESPN's scoreboard *header* feed for a
+two-week window instead, which lists every competition with matches in it, and the poller
+tracks whichever series currently holds a followed team's match.
+
+The team directory is built from that same sweep, so it fills out as teams appear — national
+sides are listed first. Competition-following still exists for "every match in the IPL", and
+the browse drawer lists the tours and series running right now.
+
 ### Pruning what you follow
 
 The page is built for trimming down over time:
 
-- **Following** lists only what you have added; tap any entry's ✕ to drop it. Everything
-  else sits behind **＋ Add competitions**, so the list stays short.
+- Followed teams and competitions each show as a chip with a ✕ to drop it. The full
+  catalogue and the live series list sit behind **＋ Browse competitions**.
 - Each competition has three team modes: **Every match**, **Only these** (a shortlist) or
   **All except these** (mute the clubs you don't want to hear about). For F1 the same
   control picks your drivers.
@@ -123,6 +138,10 @@ Ranji Trophy, County Championship, T20 Blast.
 
 Motorsport: Formula 1.
 
+Beyond that fixed list, every cricket and football competition ESPN currently runs is
+discovered automatically — roughly 28 cricket competitions on a normal day, most of them
+bilateral tours and domestic series.
+
 No NBA, NFL, NHL or MLB — deliberately. Any other ESPN cricket, football or racing
 competition can be added in the page's **Other ESPN league** box using the id from its
 scoreboard URL, e.g. `cricket/8082` or `soccer/bra.1`.
@@ -131,6 +150,9 @@ scoreboard URL, e.g. `cricket/8082` or `soccer/bra.1`.
 
 ```
 GET  /sports/leagues                     league catalogue + alert kinds
+GET  /sports/search-teams?sport=&q=      team directory search (any competition)
+GET  /sports/series?sport=               competitions with matches in the next 2 weeks
+GET  /sports/my-board?userId=            every match the subscriber follows
 GET  /sports/teams?league=soccer/eng.1   team list for picking favourites
 GET  /sports/live?leagues=a,b            current matches (cached ~20s)
 GET  /sports/validate?league=cricket/123 check a custom league id
@@ -142,11 +164,19 @@ POST /sports/test        {userId}        send yourself a test notification
 POST /sports/poll-now                   force a poll cycle
 ```
 
-`prefs` is `{ leagues: [...], teams: { league: [teamId] }, teamMode: { league:
-'all'|'only'|'except' }, football: {...}, cricket: {...}, f1: {...}, digestMinutes }`.
+`prefs` is `{ leagues: [...], follow: { cricket: [teamId], football: [teamId] },
+teams: { league: [teamId] }, teamMode: { league: 'all'|'only'|'except' }, football: {...},
+cricket: {...}, f1: {...}, digestMinutes }`. `follow` is competition-agnostic: those teams
+are tracked wherever they play.
 Each sport block holds one boolean per moment; the F1 block also holds one per session
 type (`race`, `sprint`, `qualifying`, `practice`). Older flat `events` prefs, and leagues
 from sports no longer covered, are migrated away automatically.
+
+### Look and feel
+
+The page follows Claude's visual language: warm paper background, a serif display face
+(Source Serif 4) for headings, terracotta accent, soft rounded cards, and a dark mode that
+follows the system setting.
 
 ## Deploying
 

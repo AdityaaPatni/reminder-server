@@ -165,6 +165,22 @@ const TEAM_MARKS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
 const BOWLER_MARKS = [3, 5, 7, 10];
 
 const crossed = (marks, before, after) => marks.filter(m => before < m && after >= m).pop();
+
+/**
+ * A ball carries homeScore and awayScore, but they do NOT follow the
+ * scoreboard's home/away: in a live Pakistan home Test, Pakistan's "121/3" sits
+ * in awayScore while homeScore reads "0". So pick the side that actually holds
+ * an innings in progress ("121/3") rather than trusting the field name.
+ */
+function battingScore(ball) {
+  const a = String(ball.homeScore == null ? '' : ball.homeScore).trim();
+  const b = String(ball.awayScore == null ? '' : ball.awayScore).trim();
+  const inProgress = v => /\d+\s*\/\s*\d+/.test(v);
+  const hasRuns = v => /[1-9]/.test(v);
+  if (inProgress(a) !== inProgress(b)) return inProgress(a) ? a : b;
+  if (hasRuns(a) !== hasRuns(b)) return hasRuns(a) ? a : b;
+  return a.length >= b.length ? a : b;
+}
 const parseRuns = s => {
   const m = String(s || '').match(/(\d+)/);
   return m ? Number(m[1]) : null;
@@ -221,14 +237,13 @@ function diffCricket(ev, state, balls, pageCount) {
   if (sorted.length) st.lastSeq = Number(sorted[sorted.length - 1].sequence || 0);
 
   const league = ev.leagueLabel;
-  const home = ev.teams.find(t => t.home) || ev.teams[0] || {};
   const alerts = [];
 
   for (const b of fresh) {
     const period = Number(b.period || 1);
     const battingId = String((b.team || {}).id || '');
     const battingAbbr = (b.team || {}).abbreviation || (b.team || {}).displayName || '';
-    const teamScore = battingId && battingId === home.id ? b.homeScore : b.awayScore;
+    const teamScore = battingScore(b);
     const line = `${battingAbbr} ${teamScore || ''}`.trim();
     const play = ((b.playType || {}).description || '').toLowerCase();
     const bat = b.batsman || {};
@@ -317,6 +332,6 @@ function diffCricket(ev, state, balls, pageCount) {
 }
 
 module.exports = {
-  footballKeyEvents, diffFootball, classifyFootball, scoreFromGoalText,
+  footballKeyEvents, diffFootball, classifyFootball, scoreFromGoalText, battingScore,
   cricketBalls, diffCricket,
 };

@@ -3,139 +3,176 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0a1020">
+<meta name="theme-color" content="#F0EEE6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Live Scores">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Live Scores</title>
 <link rel="manifest" href="sports-manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
-  --bg:#080e1b;--card:#101a30;--card2:#16233d;--line:#23324f;
-  --ink:#eaf0ff;--dim:#8ea0c4;--faint:#5e718f;
-  --accent:#36d399;--accent2:#1fb8ff;--warn:#ffc53d;--live:#ff4d5e;
+  --paper:#F0EEE6; --card:#FAF9F5; --raise:#FFFFFF;
+  --line:#E3DFD3; --line-soft:#EDEAE1;
+  --ink:#1F1E1B; --body:#3D3B35; --muted:#75716A; --faint:#9A958C;
+  --accent:#C96442; --accent-soft:#F3E6DF; --accent-ink:#A4482A;
+  --live:#B4472B; --ok:#4A7C59;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#262624; --card:#30302E; --raise:#373735;
+  --line:#413F3B; --line-soft:#3A3936;
+  --ink:#F5F4EF; --body:#DEDCD5; --muted:#A8A49B; --faint:#857F76;
+  --accent:#D97757; --accent-soft:#3D322C; --accent-ink:#E59176;
+  --live:#E07A5F; --ok:#7BA888;
+}}
+:root[data-theme="dark"]{
+  --paper:#262624; --card:#30302E; --raise:#373735;
+  --line:#413F3B; --line-soft:#3A3936;
+  --ink:#F5F4EF; --body:#DEDCD5; --muted:#A8A49B; --faint:#857F76;
+  --accent:#D97757; --accent-soft:#3D322C; --accent-ink:#E59176;
+  --live:#E07A5F; --ok:#7BA888;
 }
 html,body{min-height:100%}
-body{background:radial-gradient(1200px 600px at 50% -10%,#17284a 0%,var(--bg) 60%) no-repeat,var(--bg);
-  color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  padding:0 16px calc(32px + env(safe-area-inset-bottom));max-width:620px;margin:0 auto}
-header{padding:calc(20px + env(safe-area-inset-top)) 0 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-h1{font-size:21px;letter-spacing:-.3px;font-weight:700}
-h1 span{color:var(--accent)}
-.pill{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim);background:rgba(255,255,255,.03)}
-.pill.on{color:#05210f;background:var(--accent);border-color:transparent}
-.pill.off{color:#2a1200;background:var(--warn);border-color:transparent}
-section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
-h2{font-size:13px;text-transform:uppercase;letter-spacing:1.3px;color:var(--faint);margin-bottom:12px;font-weight:700}
-p.note{color:var(--dim);font-size:13px}
-p.note+p.note{margin-top:8px}
-button{font:inherit;cursor:pointer;border:none;border-radius:12px}
-.primary{width:100%;padding:15px;font-size:16px;font-weight:700;color:#04240f;
-  background:linear-gradient(180deg,#4ee6ab,#20bb84);box-shadow:0 6px 18px rgba(32,187,132,.25)}
-.primary:disabled{opacity:.55;box-shadow:none}
-.ghost{padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink);background:var(--card2);border:1px solid var(--line)}
+body{background:var(--paper);color:var(--body);font:16px/1.5 var(--sans);
+  padding:0 16px calc(40px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto;
+  -webkit-font-smoothing:antialiased}
+
+header{padding:calc(26px + env(safe-area-inset-top)) 0 18px}
+h1{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:-.4px;color:var(--ink);line-height:1.15}
+.tag{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;font-weight:500;
+  padding:5px 11px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--card)}
+.tag.on{color:#fff;background:var(--accent);border-color:transparent}
+.tag.warn{color:var(--accent-ink);background:var(--accent-soft);border-color:transparent}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+h2{font-family:var(--serif);font-size:19px;font-weight:600;color:var(--ink);letter-spacing:-.2px;margin-bottom:4px}
+h2+.sub{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-height:1.45}
+h3{font-size:11.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:9px}
+p.note{font-size:13.5px;color:var(--muted);line-height:1.5}
+
+button{font:inherit;cursor:pointer;border:none;border-radius:10px;color:inherit}
+.primary{width:100%;padding:14px;font-size:16px;font-weight:600;color:#fff;background:var(--accent);border-radius:12px}
+.primary:active{background:var(--accent-ink)}
+.primary:disabled{opacity:.5}
+.ghost{padding:10px 15px;font-size:13.5px;font-weight:500;background:var(--raise);border:1px solid var(--line);color:var(--body)}
 .row{display:flex;gap:8px;flex-wrap:wrap}
-.chips{display:flex;flex-wrap:wrap;gap:7px}
-.chip{padding:8px 12px;font-size:13px;font-weight:600;border-radius:999px;background:var(--card2);
-  border:1px solid var(--line);color:var(--dim)}
-.chip.sel{background:rgba(54,211,153,.14);border-color:var(--accent);color:var(--accent)}
-.chip.ex{background:rgba(255,77,94,.13);border-color:var(--live);color:#ff8a94}
-.chip .x{margin-left:7px;opacity:.75;font-weight:700}
-.seg{display:flex;gap:4px;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:3px;margin:4px 0 8px}
-.seg button{flex:1;padding:7px 4px;font-size:11.5px;font-weight:600;color:var(--dim);background:transparent;border-radius:8px}
-.seg button.on{background:rgba(54,211,153,.16);color:var(--accent)}
-.empty{color:var(--faint);font-size:13px;padding:2px 0 6px}
-details.add{margin-top:4px}
-details.add>summary{list-style:none;cursor:pointer;display:inline-block;padding:9px 13px;font-size:13px;font-weight:600;
-  color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:11px}
+
+input[type=text],input[type=search],select{width:100%;padding:12px 14px;border-radius:11px;background:var(--raise);
+  color:var(--ink);border:1px solid var(--line);font:inherit;font-size:15px}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+input::placeholder{color:var(--faint)}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;font-size:14px;font-weight:500;
+  border-radius:999px;background:var(--raise);border:1px solid var(--line);color:var(--body)}
+.chip:active{background:var(--accent-soft)}
+.chip.sel{background:var(--accent);border-color:transparent;color:#fff}
+.chip.ex{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+.chip .x{opacity:.8;font-size:15px;line-height:1}
+.chip img{width:18px;height:18px;border-radius:3px;object-fit:contain;background:transparent}
+.flag{font-size:11px;color:var(--faint);font-weight:500}
+
+.result{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:11px 12px;border-radius:11px;
+  background:transparent;border:1px solid transparent}
+.result:active{background:var(--raise)}
+.result img{width:26px;height:26px;border-radius:5px;object-fit:contain;flex:0 0 26px}
+.result .nm{flex:1;min-width:0;font-size:15px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.result .add{font-size:20px;color:var(--accent);font-weight:400}
+.results{max-height:300px;overflow:auto;margin-top:8px;border-top:1px solid var(--line-soft)}
+
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid var(--line-soft)}
+.toggle:last-of-type{border-bottom:none}
+.toggle b{font-weight:500;font-size:15px;color:var(--ink)}
+.toggle small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px;line-height:1.4}
+.sw{flex:0 0 46px;height:28px;border-radius:999px;background:var(--line);position:relative;transition:background .18s;cursor:pointer}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;
+  background:var(--raise);box-shadow:0 1px 3px rgba(0,0,0,.18);transition:transform .18s}
+.sw.on{background:var(--accent)}
+.sw.on::after{transform:translateX(18px);background:#fff}
+
+.seg{display:flex;gap:3px;background:var(--paper);border:1px solid var(--line);border-radius:11px;padding:3px;margin:8px 0 10px}
+.seg button{flex:1;padding:8px 4px;font-size:12.5px;font-weight:500;color:var(--muted);background:transparent;border-radius:8px}
+.seg button.on{background:var(--raise);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+
+.match{display:flex;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line-soft)}
+.match:last-child{border-bottom:none}
+.match .when{flex:0 0 54px;font-size:11px;font-weight:600;letter-spacing:.4px;color:var(--faint);text-align:center;line-height:1.35}
+.match .when.live{color:var(--live);display:flex;align-items:center;justify-content:center;gap:4px}
+.match .when.live .dot{animation:blip 1.4s ease-in-out infinite}
+@keyframes blip{50%{opacity:.3}}
+.match .mid{flex:1;min-width:0}
+.match .t{font-size:15px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.match .l{font-size:12.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+details.add>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  padding:10px 15px;font-size:14px;font-weight:500;color:var(--body);background:var(--raise);
+  border:1px solid var(--line);border-radius:11px}
 details.add>summary::-webkit-details-marker{display:none}
 details.add[open]>summary{color:var(--accent);border-color:var(--accent)}
-.grp{margin-bottom:14px}
-.grp>h3{font-size:12px;color:var(--faint);margin-bottom:7px;letter-spacing:.6px;text-transform:uppercase}
-.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
-.toggle:last-of-type{border-bottom:none}
-.toggle b{font-weight:600;font-size:14px}
-.toggle small{display:block;color:var(--faint);font-size:12px;margin-top:2px}
-.sw{flex:0 0 46px;height:27px;border-radius:999px;background:#2a3a58;position:relative;transition:background .18s}
-.sw::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#8ea0c4;transition:transform .18s,background .18s}
-.sw.on{background:rgba(54,211,153,.35)}
-.sw.on::after{transform:translateX(19px);background:var(--accent)}
-select,input[type=text]{width:100%;padding:11px 12px;border-radius:11px;background:var(--card2);
-  color:var(--ink);border:1px solid var(--line);font:inherit}
-.match{display:flex;gap:11px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
-.match:last-child{border-bottom:none}
-.match .state{flex:0 0 58px;font-size:11px;font-weight:700;text-align:center;color:var(--faint);line-height:1.3}
-.match .state.live{color:var(--live)}
-.match .state.live b{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--live);margin-right:4px;animation:blip 1.2s infinite}
-@keyframes blip{50%{opacity:.25}}
-.match .mid{flex:1;min-width:0}
-.match .mid .t{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.match .mid .l{font-size:11.5px;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.teamlist{max-height:230px;overflow:auto;margin-top:9px;padding-right:4px}
-.banner{background:rgba(255,197,61,.1);border:1px solid rgba(255,197,61,.35);color:#ffdd8a;
-  border-radius:13px;padding:13px;font-size:13px;line-height:1.5;margin-bottom:14px}
-.banner b{color:#fff}
-.ok{color:var(--accent)}.bad{color:var(--live)}
-footer{text-align:center;color:var(--faint);font-size:12px;padding:6px 0 0}
-a{color:var(--accent2)}
-.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);
+.grp{margin-bottom:16px}
+.empty{color:var(--faint);font-size:14px;padding:4px 0 8px}
+.callout{background:var(--accent-soft);border-radius:12px;padding:14px 16px;font-size:13.5px;
+  line-height:1.55;color:var(--accent-ink);margin-bottom:16px}
+.callout b{font-weight:600}
+footer{text-align:center;color:var(--faint);font-size:12.5px;padding:4px 0 0;line-height:1.6}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);
   border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
+.ok{color:var(--ok)}.bad{color:var(--live)}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Live <span>Scores</span></h1>
-  <span class="pill" id="status">checking…</span>
+  <h1>Live Scores</h1>
+  <span class="tag" id="status">checking…</span>
 </header>
 
-<div id="iosBanner" class="banner" hidden>
-  <b>iPhone / iPad:</b> notifications only work once this page is on your Home Screen.
-  Tap <b>Share</b> → <b>Add to Home Screen</b>, then open it from there and turn updates on.
-  It's a shortcut, not an app download — a few KB.
+<div id="iosBanner" class="callout" hidden>
+  <b>On iPhone:</b> tap Share → Add to Home Screen, then open it from that icon. Apple only allows
+  notifications for Home Screen apps — a Safari tab can't do it.
 </div>
 
-<section id="enableCard">
-  <h2>Background updates</h2>
-  <p class="note" id="enableNote">Turn this on once. Goals, red cards, subs, wickets and milestones then arrive as
-    notifications even when this page is closed or force-quit — your phone's push service wakes it, not the page.</p>
-  <div style="height:12px"></div>
-  <button class="primary" id="enableBtn">Turn on live updates</button>
-  <div class="row" style="margin-top:10px" id="postEnableRow" hidden>
-    <button class="ghost" id="testBtn">Send test notification</button>
-    <button class="ghost" id="offBtn">Turn off</button>
+<section>
+  <h2>Follow teams</h2>
+  <p class="sub">Search any team and you'll get its matches wherever they are — a bilateral tour, a World Cup,
+    a domestic league. No need to know which series it's in.</p>
+  <div id="followed"></div>
+  <div class="seg" id="sportSeg">
+    <button data-sport="cricket" class="on">Cricket</button>
+    <button data-sport="football">Football</button>
   </div>
+  <input type="search" id="teamSearch" placeholder="India, Mumbai Indians, Arsenal…" autocomplete="off" autocapitalize="words">
+  <div class="results" id="teamResults" hidden></div>
 </section>
 
 <section>
-  <h2>Following</h2>
-  <div id="following"><span class="spin"></span></div>
+  <h2>Follow whole competitions</h2>
+  <p class="sub">Optional — for when you want every match in a league or series, not just one team.</p>
+  <div id="following"></div>
   <details class="add" id="addWrap">
-    <summary>＋ Add competitions</summary>
-    <div id="leagues" style="margin-top:12px"></div>
+    <summary>＋ Browse competitions</summary>
+    <div id="leagues" style="margin-top:16px"></div>
+    <div id="seriesWrap" style="margin-top:4px"></div>
   </details>
-  <div style="margin-top:6px">
-    <h3 style="font-size:12px;color:var(--faint);letter-spacing:.6px;text-transform:uppercase;margin:12px 0 7px">
-      Other ESPN league (optional)</h3>
-    <div class="row">
-      <input type="text" id="customLeague" placeholder="e.g. cricket/8082 or soccer/bra.1" style="flex:1;min-width:160px">
-      <button class="ghost" id="addLeague">Add</button>
-    </div>
-    <p class="note" id="customMsg" style="margin-top:7px"></p>
-  </div>
 </section>
 
 <section id="teamsCard" hidden>
-  <h2>Teams &amp; drivers</h2>
-  <p class="note">Per competition: every match, only the ones you pick, or everything except the ones you pick.</p>
+  <h2>Narrow a competition</h2>
+  <p class="sub">For competitions you follow whole: keep every match, only certain teams, or everything
+    except the ones you mute.</p>
   <div id="teams"></div>
 </section>
 
-<section data-sportcard="soccer" hidden>
+<section data-sportcard="football" hidden>
   <h2>Football moments</h2>
+  <p class="sub">Each one is a separate notification you can switch off.</p>
   <div class="toggle"><div><b>Goals</b><small>With scorer, assist and the minute</small></div>
     <div class="sw" data-sport="football" data-ev="goal"></div></div>
   <div class="toggle"><div><b>Red cards</b><small>Straight red and second yellow</small></div>
@@ -150,12 +187,13 @@ a{color:var(--accent2)}
     <div class="sw" data-sport="football" data-ev="break"></div></div>
   <div class="toggle"><div><b>Yellow cards</b><small>Off by default — there are a lot of them</small></div>
     <div class="sw" data-sport="football" data-ev="yellow"></div></div>
-  <div class="toggle"><div><b>Missed penalties &amp; VAR calls</b><small>Other decisive moments</small></div>
+  <div class="toggle"><div><b>Missed penalties &amp; VAR</b><small>Other decisive moments</small></div>
     <div class="sw" data-sport="football" data-ev="other"></div></div>
 </section>
 
 <section data-sportcard="cricket" hidden>
   <h2>Cricket moments</h2>
+  <p class="sub">Each one is a separate notification you can switch off.</p>
   <div class="toggle"><div><b>Wickets</b><small>Batter out, their score, the bowler</small></div>
     <div class="sw" data-sport="cricket" data-ev="wicket"></div></div>
   <div class="toggle"><div><b>Batting milestones</b><small>50, 100, 150, 200 for a batter</small></div>
@@ -172,75 +210,86 @@ a{color:var(--accent2)}
     <div class="sw" data-sport="cricket" data-ev="final"></div></div>
   <div class="toggle"><div><b>Fours &amp; sixes</b><small>Off by default — a T20 would buzz 30 times</small></div>
     <div class="sw" data-sport="cricket" data-ev="boundary"></div></div>
-  <div style="margin-top:14px">
-    <h3 style="font-size:12px;color:var(--faint);letter-spacing:.6px;text-transform:uppercase;margin-bottom:7px">
-      Regular score summary</h3>
-    <select id="digest">
-      <option value="0">Off — only the moments above</option>
-      <option value="5">Every 5 minutes while matches are live</option>
-      <option value="10">Every 10 minutes while matches are live</option>
-      <option value="15">Every 15 minutes while matches are live</option>
-      <option value="30">Every 30 minutes while matches are live</option>
-      <option value="60">Every hour while matches are live</option>
-    </select>
-    <p class="note" style="margin-top:7px">A periodic score line for everything you follow that is live, on top of
-      the individual moments.</p>
-  </div>
 </section>
 
 <section id="f1Card" hidden>
-  <h2>Formula 1 moments</h2>
-  <div class="toggle"><div><b>Session start</b><small>Lights out, and qualifying/practice going green</small></div>
+  <h2>Formula 1</h2>
+  <p class="sub">A race weekend is five sessions, each tracked on its own.</p>
+  <div class="toggle"><div><b>Session start</b><small>Lights out, and qualifying going green</small></div>
     <div class="sw" data-sport="f1" data-ev="start"></div></div>
   <div class="toggle"><div><b>Lead change</b><small>When the race lead changes hands</small></div>
     <div class="sw" data-sport="f1" data-ev="lead"></div></div>
-  <div class="toggle"><div><b>My drivers' positions</b><small>Needs drivers picked above</small></div>
+  <div class="toggle"><div><b>My drivers' positions</b><small>Needs drivers picked below</small></div>
     <div class="sw" data-sport="f1" data-ev="driverPosition"></div></div>
   <div class="toggle"><div><b>Result</b><small>Winner, pole, podium</small></div>
     <div class="sw" data-sport="f1" data-ev="final"></div></div>
-  <h2 style="margin:18px 0 10px">Which sessions</h2>
-  <div class="toggle"><div><b>Race</b><small></small></div><div class="sw" data-sport="f1" data-ev="race"></div></div>
-  <div class="toggle"><div><b>Sprint</b><small></small></div><div class="sw" data-sport="f1" data-ev="sprint"></div></div>
-  <div class="toggle"><div><b>Qualifying</b><small></small></div><div class="sw" data-sport="f1" data-ev="qualifying"></div></div>
-  <div class="toggle"><div><b>Practice</b><small>Off by default</small></div><div class="sw" data-sport="f1" data-ev="practice"></div></div>
+  <h3 style="margin:20px 0 10px">Which sessions</h3>
+  <div class="toggle"><div><b>Race</b></div><div class="sw" data-sport="f1" data-ev="race"></div></div>
+  <div class="toggle"><div><b>Sprint</b></div><div class="sw" data-sport="f1" data-ev="sprint"></div></div>
+  <div class="toggle"><div><b>Qualifying</b></div><div class="sw" data-sport="f1" data-ev="qualifying"></div></div>
+  <div class="toggle"><div><b>Practice</b><small>Off by default</small></div>
+    <div class="sw" data-sport="f1" data-ev="practice"></div></div>
 </section>
 
 <section>
-  <h2>Right now <span id="liveAt" style="text-transform:none;letter-spacing:0;color:var(--faint);font-weight:400"></span></h2>
-  <div id="live"><p class="note">Pick a league above to see its matches.</p></div>
+  <h2>Score summary</h2>
+  <p class="sub">A periodic score line for everything of yours that's live, on top of the moments above.</p>
+  <select id="digest">
+    <option value="0">Off — only the moments above</option>
+    <option value="5">Every 5 minutes</option>
+    <option value="10">Every 10 minutes</option>
+    <option value="15">Every 15 minutes</option>
+    <option value="30">Every 30 minutes</option>
+    <option value="60">Every hour</option>
+  </select>
 </section>
 
-<footer>Cricket, football &amp; F1 from ESPN's public feed · checked every 20s while something you follow is live</footer>
+<section id="enableCard">
+  <h2>Notifications</h2>
+  <p class="sub" id="enableNote">Turn this on once. Everything above then arrives as a notification even when
+    this app is closed or force-quit — your phone wakes it, not the other way round.</p>
+  <button class="primary" id="enableBtn">Turn on live updates</button>
+  <div class="row" style="margin-top:10px" id="postEnableRow" hidden>
+    <button class="ghost" id="testBtn">Send a test</button>
+    <button class="ghost" id="offBtn">Turn off</button>
+  </div>
+</section>
+
+<section>
+  <h2>Your matches <span id="liveAt" style="font-family:var(--sans);font-size:12.5px;font-weight:400;color:var(--faint)"></span></h2>
+  <div id="live"><p class="note">Follow a team or a competition and its matches appear here.</p></div>
+</section>
+
+<footer>Cricket, football &amp; F1 from ESPN's public feed<br>Checked every 20 seconds while something of yours is live</footer>
 
 <script>
 const API = location.origin;
-const UID_KEY = 'sportsUserId';
-const PREFS_KEY = 'sportsPrefs';
+const UID_KEY = 'sportsUserId', PREFS_KEY = 'sportsPrefs';
 let uid = localStorage.getItem(UID_KEY);
 if (!uid) { uid = (crypto.randomUUID ? crypto.randomUUID() : 'u' + Date.now() + Math.random().toString(16).slice(2)); localStorage.setItem(UID_KEY, uid); }
 
 let prefs = {
-  leagues: [], teams: {},
+  leagues: [], teams: {}, teamMode: {},
+  follow: { cricket: [], football: [] },
   football: { start: true, goal: true, red: true, yellow: false, sub: true, break: true, other: true, final: true },
   cricket: { start: true, wicket: true, batterMilestone: true, teamMilestone: true, bowlerMilestone: true, boundary: false, innings: true, final: true },
   f1: { start: true, lead: true, driverPosition: true, final: true, race: true, sprint: true, qualifying: true, practice: false },
-  teamMode: {},
   digestMinutes: 0, enabled: true,
 };
 const MODE_LABEL = { all: 'Every match', only: 'Only these', except: 'All except these' };
-let addDrawerSet = false;
-let catalog = [];
-let subscribed = false;
-let reg = null;
+let catalog = [], subscribed = false, reg = null, addDrawerSet = false;
+let searchSport = 'cricket';
+const teamNames = {};            // id -> {name, logo} for followed teams
 
 const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const api = async (path, opts) => {
   const r = await fetch(API + path, opts);
   if (!r.ok) throw new Error((await r.text().catch(() => '')) || r.status);
   return r.json();
 };
 
-/* ---------------------------------------------------------------- platform */
+/* ------------------------------------------------------------- platform */
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -249,140 +298,170 @@ if (isIOS && !standalone) $('#iosBanner').hidden = false;
 function setStatus() {
   const el = $('#status');
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    el.textContent = 'not supported here'; el.className = 'pill off'; return;
+    el.className = 'tag warn'; el.textContent = 'notifications not supported here'; return;
   }
-  if (Notification.permission === 'denied') { el.textContent = 'notifications blocked'; el.className = 'pill off'; return; }
-  if (subscribed && prefs.enabled !== false) { el.textContent = '● updates on'; el.className = 'pill on'; return; }
-  el.textContent = 'updates off'; el.className = 'pill';
+  if (Notification.permission === 'denied') { el.className = 'tag warn'; el.textContent = 'notifications blocked'; return; }
+  if (subscribed && prefs.enabled !== false) { el.className = 'tag on'; el.innerHTML = '<span class="dot"></span>updates on'; return; }
+  el.className = 'tag'; el.textContent = 'updates off';
 }
 
-/* -------------------------------------------------------------- subscribe */
-function b64ToU8(base64) {
-  const pad = '='.repeat((4 - base64.length % 4) % 4);
-  const s = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(s);
-  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
-}
-
-async function ensureSW() {
-  if (reg) return reg;
-  reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-  await navigator.serviceWorker.ready;
-  return reg;
-}
-
-async function enable() {
-  const btn = $('#enableBtn');
-  btn.disabled = true; btn.textContent = 'Setting up…';
-  try {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      throw new Error(isIOS && !standalone
-        ? 'On iPhone, add this page to your Home Screen first (Share → Add to Home Screen), then open it from there.'
-        : 'This browser cannot do background push. Chrome, Edge, Firefox or Safari 16.4+ can.');
-    }
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') throw new Error('Notification permission was not granted.');
-
-    const r = await ensureSW();
-    const { key } = await api('/vapid-public-key');
-    let sub = await r.pushManager.getSubscription();
-    if (!sub) sub = await r.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(key) });
-
-    const res = await api('/sports/subscribe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: uid, subscription: sub, prefs }),
-    });
-    prefs = res.prefs; subscribed = true;
-    $('#enableNote').innerHTML = '<span class="ok">Updates are on.</span> You can close this page — scores keep coming.';
-    btn.hidden = true; $('#postEnableRow').hidden = false;
-    render();
-  } catch (e) {
-    $('#enableNote').innerHTML = '<span class="bad">' + e.message + '</span>';
-    btn.disabled = false; btn.textContent = 'Try again';
-  }
-  setStatus();
-}
-
-function cachePrefs() {
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (_) {}
-}
+/* ------------------------------------------------------------ prefs i/o */
+function cachePrefs() { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (_) {} }
 
 let saveTimer = null;
 function savePrefs() {
-  cachePrefs();                      // survives a reload even before push is on
+  cachePrefs();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     if (!subscribed) return;
     try {
-      // Fire and forget: the response is only a confirmation. Merging it back
-      // would let a slow earlier save overwrite a choice just made here.
-      await api('/sports/prefs', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: uid, prefs }),
-      });
-    } catch (_) { /* retried on next change */ }
+      await api('/sports/prefs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, prefs }) });
+    } catch (_) {}
   }, 450);
 }
 
-/* ------------------------------------------------------------------ render */
-function removeLeague(id) {
-  prefs.leagues = prefs.leagues.filter(l => l !== id);
-  delete prefs.teams[id];
-  delete prefs.teamMode[id];
-  savePrefs(); render(); loadLive();
+/* ------------------------------------------------------------ team follow */
+function renderFollowed() {
+  const host = $('#followed');
+  const all = [...(prefs.follow.cricket || []).map(id => ['cricket', id]),
+               ...(prefs.follow.football || []).map(id => ['football', id])];
+  if (!all.length) { host.innerHTML = '<p class="empty">No teams yet.</p>'; return; }
+  const chips = document.createElement('div'); chips.className = 'chips';
+  chips.style.marginBottom = '14px';
+  all.forEach(([sport, id]) => {
+    const meta = teamNames[id] || {};
+    const b = document.createElement('button');
+    b.className = 'chip sel';
+    b.innerHTML = (meta.logo ? '<img src="' + esc(meta.logo) + '" alt="">' : '') +
+      esc(meta.name || id) + '<span class="x">✕</span>';
+    b.onclick = () => {
+      prefs.follow[sport] = (prefs.follow[sport] || []).filter(x => x !== id);
+      savePrefs(); render(); loadBoard();
+    };
+    chips.appendChild(b);
+  });
+  host.innerHTML = ''; host.appendChild(chips);
 }
 
-function addLeague(id) {
+let searchTimer = null;
+function wireSearch() {
+  document.querySelectorAll('#sportSeg button').forEach(b => {
+    b.onclick = () => {
+      searchSport = b.dataset.sport;
+      document.querySelectorAll('#sportSeg button').forEach(x => x.classList.toggle('on', x === b));
+      if ($('#teamSearch').value.trim()) runSearch();
+    };
+  });
+  $('#teamSearch').oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 280); };
+}
+
+async function runSearch() {
+  const q = $('#teamSearch').value.trim();
+  const host = $('#teamResults');
+  if (q.length < 2) { host.hidden = true; host.innerHTML = ''; return; }
+  host.hidden = false;
+  host.innerHTML = '<p class="note" style="padding:12px"><span class="spin"></span> searching…</p>';
+  try {
+    const { teams } = await api(`/sports/search-teams?sport=${searchSport}&q=${encodeURIComponent(q)}`);
+    if (!teams.length) { host.innerHTML = '<p class="note" style="padding:12px">Nothing found. Teams appear once they have a fixture in the next two weeks.</p>'; return; }
+    host.innerHTML = '';
+    teams.slice(0, 25).forEach(t => {
+      const already = (prefs.follow[searchSport] || []).includes(t.id);
+      const b = document.createElement('button');
+      b.className = 'result';
+      b.innerHTML = (t.logo ? '<img src="' + esc(t.logo) + '" alt="">' : '<span style="flex:0 0 26px"></span>') +
+        '<span class="nm">' + esc(t.name) + (t.national ? ' <span class="flag">national</span>' : '') + '</span>' +
+        '<span class="add">' + (already ? '✓' : '＋') + '</span>';
+      b.onclick = () => {
+        teamNames[t.id] = { name: t.name, logo: t.logo };
+        const list = prefs.follow[searchSport] || (prefs.follow[searchSport] = []);
+        if (!list.includes(t.id)) list.push(t.id);
+        try { localStorage.setItem('sportsTeamNames', JSON.stringify(teamNames)); } catch (_) {}
+        $('#teamSearch').value = ''; host.hidden = true; host.innerHTML = '';
+        savePrefs(); render(); loadBoard();
+      };
+      host.appendChild(b);
+    });
+  } catch (e) {
+    host.innerHTML = '<p class="note bad" style="padding:12px">Search failed: ' + esc(e.message) + '</p>';
+  }
+}
+
+/* ---------------------------------------------------------- competitions */
+function removeLeague(id) {
+  prefs.leagues = prefs.leagues.filter(l => l !== id);
+  delete prefs.teams[id]; delete prefs.teamMode[id];
+  savePrefs(); render(); loadBoard();
+}
+function addLeague(id, label) {
   if (!prefs.leagues.includes(id)) prefs.leagues.push(id);
-  savePrefs(); render(); loadLive();
+  if (label && !catalog.some(l => l.id === id)) catalog.push({ id, label, group: 'Series' });
+  savePrefs(); render(); loadBoard();
 }
 
 function renderFollowing() {
   const host = $('#following');
   host.innerHTML = '';
-  if (!prefs.leagues.length) {
-    host.innerHTML = '<p class="empty">Nothing yet — add a competition below.</p>';
-    return;
-  }
+  if (!prefs.leagues.length) { host.innerHTML = '<p class="empty">None — that\'s fine if you follow teams.</p>'; return; }
   const chips = document.createElement('div'); chips.className = 'chips';
   prefs.leagues.forEach(id => {
     const label = (catalog.find(l => l.id === id) || {}).label || id;
     const b = document.createElement('button');
     b.className = 'chip sel';
     b.innerHTML = esc(label) + '<span class="x">✕</span>';
-    b.title = 'Remove ' + label;
     b.onclick = () => removeLeague(id);
     chips.appendChild(b);
   });
   host.appendChild(chips);
-  const hint = document.createElement('p');
-  hint.className = 'note'; hint.style.marginTop = '8px';
-  hint.textContent = 'Tap one to stop following it.';
-  host.appendChild(hint);
 }
 
 function renderLeagues() {
   const host = $('#leagues');
   host.innerHTML = '';
-  const groups = [...new Set(catalog.map(l => l.group))];
-  let offered = 0;
-  groups.forEach(g => {
+  [...new Set(catalog.map(l => l.group))].forEach(g => {
     const rest = catalog.filter(l => l.group === g && !prefs.leagues.includes(l.id));
     if (!rest.length) return;
-    offered += rest.length;
     const wrap = document.createElement('div'); wrap.className = 'grp';
     wrap.innerHTML = '<h3>' + esc(g) + '</h3>';
     const chips = document.createElement('div'); chips.className = 'chips';
     rest.forEach(l => {
       const b = document.createElement('button');
-      b.className = 'chip';
-      b.textContent = l.label;
+      b.className = 'chip'; b.textContent = l.label;
       b.onclick = () => addLeague(l.id);
       chips.appendChild(b);
     });
     wrap.appendChild(chips); host.appendChild(wrap);
   });
-  if (!offered) host.innerHTML = '<p class="empty">You are following everything in the list.</p>';
+}
+
+let seriesLoaded = false;
+async function renderSeries() {
+  if (seriesLoaded) return;
+  seriesLoaded = true;
+  const host = $('#seriesWrap');
+  host.innerHTML = '<h3>Series on now</h3><p class="note"><span class="spin"></span> loading…</p>';
+  try {
+    const out = [];
+    for (const sport of ['cricket', 'football']) {
+      const { series } = await api('/sports/series?sport=' + sport);
+      series.slice(0, 14).forEach(s => out.push(s));
+    }
+    host.innerHTML = '<h3>Series on now</h3>';
+    const chips = document.createElement('div'); chips.className = 'chips';
+    out.filter(s => !prefs.leagues.includes(s.id)).forEach(s => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.innerHTML = esc(s.label) + (s.live ? ' <span class="flag" style="color:var(--live)">live</span>' : '');
+      b.onclick = () => addLeague(s.id, s.label);
+      chips.appendChild(b);
+    });
+    host.appendChild(chips);
+    host.insertAdjacentHTML('beforeend',
+      '<p class="note" style="margin-top:9px">Tours and one-off series appear here automatically while they run.</p>');
+  } catch (e) {
+    host.innerHTML = '<h3>Series on now</h3><p class="note bad">Could not load: ' + esc(e.message) + '</p>';
+  }
 }
 
 async function renderTeams() {
@@ -390,7 +469,6 @@ async function renderTeams() {
   if (!prefs.leagues.length) { card.hidden = true; return; }
   card.hidden = false;
   if (!host.childElementCount) host.innerHTML = '<span class="spin"></span>';
-
   const blocks = [];
   for (const id of prefs.leagues) {
     const label = (catalog.find(l => l.id === id) || {}).label || id;
@@ -399,27 +477,24 @@ async function renderTeams() {
     try { teams = (await api('/sports/teams?league=' + encodeURIComponent(id))).teams; } catch (_) {}
     const sel = prefs.teams[id] || [];
     const mode = prefs.teamMode[id] || (sel.length ? 'only' : 'all');
-
     const div = document.createElement('div'); div.className = 'grp';
     div.innerHTML = '<h3>' + esc(label) + (isF1 ? ' — drivers' : '') + '</h3>';
-
     if (!teams.length) {
-      div.insertAdjacentHTML('beforeend', '<p class="empty">No list available — every match is included.</p>');
+      div.insertAdjacentHTML('beforeend', '<p class="empty">No list available — every match included.</p>');
       blocks.push(div); continue;
     }
-
     const seg = document.createElement('div'); seg.className = 'seg';
-    (isF1 ? ['all', 'only', 'except'] : ['all', 'only', 'except']).forEach(m => {
+    ['all', 'only', 'except'].forEach(m => {
       const b = document.createElement('button');
       b.className = mode === m ? 'on' : '';
       b.textContent = isF1 && m === 'all' ? 'All drivers' : MODE_LABEL[m];
-      b.onclick = () => { prefs.teamMode[id] = m; savePrefs(); renderTeams(); loadLive(); };
+      b.onclick = () => { prefs.teamMode[id] = m; savePrefs(); renderTeams(); loadBoard(); };
       seg.appendChild(b);
     });
     div.appendChild(seg);
-
     if (mode !== 'all') {
-      const chips = document.createElement('div'); chips.className = 'chips teamlist';
+      const chips = document.createElement('div'); chips.className = 'chips';
+      chips.style.maxHeight = '230px'; chips.style.overflow = 'auto';
       teams.forEach(t => {
         const picked = sel.includes(t.id);
         const b = document.createElement('button');
@@ -430,16 +505,13 @@ async function renderTeams() {
           const i = cur.indexOf(t.id);
           if (i >= 0) cur.splice(i, 1); else cur.push(t.id);
           if (cur.length) prefs.teams[id] = cur; else delete prefs.teams[id];
-          savePrefs(); renderTeams(); loadLive();
+          savePrefs(); renderTeams(); loadBoard();
         };
         chips.appendChild(b);
       });
       div.appendChild(chips);
-      div.insertAdjacentHTML('beforeend',
-        '<p class="note" style="margin-top:7px">' +
-        (mode === 'except'
-          ? 'Tapped ones are muted — everything else still reaches you.'
-          : 'Only the tapped ones reach you.') + '</p>');
+      div.insertAdjacentHTML('beforeend', '<p class="note" style="margin-top:8px">' +
+        (mode === 'except' ? 'Muted teams are highlighted — everything else still reaches you.' : 'Only the picked ones reach you.') + '</p>');
     }
     blocks.push(div);
   }
@@ -451,70 +523,103 @@ function renderToggles() {
     const sport = el.dataset.sport, kind = el.dataset.ev;
     prefs[sport] = prefs[sport] || {};
     el.classList.toggle('on', prefs[sport][kind] !== false);
-    el.onclick = () => {
-      prefs[sport][kind] = prefs[sport][kind] === false;
-      renderToggles(); savePrefs();
-    };
+    el.onclick = () => { prefs[sport][kind] = prefs[sport][kind] === false; renderToggles(); savePrefs(); };
   });
   $('#digest').value = String(prefs.digestMinutes || 0);
 }
 
 function render() {
-  renderFollowing(); renderLeagues(); renderTeams(); renderToggles(); setStatus();
-  const has = p => prefs.leagues.some(id => p.test(id));
-  $('#f1Card').hidden = !has(/^racing\//);
-  document.querySelectorAll('[data-sportcard]').forEach(el => {
-    el.hidden = !has(new RegExp('^' + el.dataset.sportcard + '/'));
-  });
-  // Open the picker on first load when nothing is followed, then leave it alone
-  // so adding one competition doesn't shut the drawer mid-selection.
-  if (!addDrawerSet) { $('#addWrap').open = !prefs.leagues.length; addDrawerSet = true; }
+  renderFollowed(); renderFollowing(); renderLeagues(); renderTeams(); renderToggles(); setStatus();
+  const hasLeague = p => prefs.leagues.some(id => p.test(id));
+  $('#f1Card').hidden = !hasLeague(/^racing\//);
+  $('[data-sportcard="football"]').hidden = !(hasLeague(/^soccer\//) || (prefs.follow.football || []).length);
+  $('[data-sportcard="cricket"]').hidden = !(hasLeague(/^cricket\//) || (prefs.follow.cricket || []).length);
+  if (!addDrawerSet) {
+    $('#addWrap').open = false; addDrawerSet = true;
+    $('#addWrap').addEventListener('toggle', () => { if ($('#addWrap').open) renderSeries(); });
+  }
 }
 
-/* -------------------------------------------------------------- live board */
-let liveToken = 0;
-async function loadLive() {
+/* ----------------------------------------------------------- the board */
+let boardToken = 0;
+async function loadBoard() {
   const host = $('#live');
-  const token = ++liveToken;
-  if (!prefs.leagues.length) { host.innerHTML = '<p class="note">Pick a league above to see its matches.</p>'; $('#liveAt').textContent = ''; return; }
+  const token = ++boardToken;
+  const nothing = !prefs.leagues.length && !(prefs.follow.cricket || []).length && !(prefs.follow.football || []).length;
+  if (nothing) { host.innerHTML = '<p class="note">Follow a team or a competition and its matches appear here.</p>'; $('#liveAt').textContent = ''; return; }
   try {
-    const { events } = await api('/sports/live?leagues=' + encodeURIComponent(prefs.leagues.join(',')));
-    if (token !== liveToken) return;
-    const mine = events.filter(e => {
-      if (e.sport === 'f1') return true;
-      const picked = prefs.teams[e.league] || [];
-      const mode = prefs.teamMode[e.league] || (picked.length ? 'only' : 'all');
-      if (mode === 'all' || !picked.length) return true;
-      const hit = e.teams.some(t => picked.includes(t.id));
-      return mode === 'except' ? !hit : hit;
-    }).slice(0, 25);
-    if (!mine.length) { host.innerHTML = '<p class="note">No matches scheduled in those leagues right now.</p>'; return; }
-    host.innerHTML = mine.map(e => {
+    const url = subscribed
+      ? '/sports/my-board?userId=' + encodeURIComponent(uid)
+      : '/sports/my-board?prefs=' + encodeURIComponent(JSON.stringify({ leagues: prefs.leagues, teams: prefs.teams, teamMode: prefs.teamMode, follow: prefs.follow }));
+    const { events } = await api(url);
+    if (token !== boardToken) return;
+    if (!events.length) { host.innerHTML = '<p class="note">Nothing scheduled for them in the next couple of weeks.</p>'; return; }
+    host.innerHTML = events.slice(0, 25).map(e => {
       const live = e.state === 'in';
       const when = e.state === 'pre' && e.date
         ? new Date(e.date).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
         : (e.detail || '');
-      const score = e.line || e.name;
+      const title = e.sport === 'f1' ? e.name : (e.line || e.name);
+      const under = e.sport === 'f1' ? (e.line || '') : e.leagueLabel;
       return '<div class="match">' +
-        '<div class="state' + (live ? ' live' : '') + '">' + (live ? '<b></b>LIVE' : (e.state === 'post' ? 'FT' : 'SOON')) + '</div>' +
-        '<div class="mid"><div class="t">' + esc(e.sport === 'f1' ? e.name : score) + '</div>' +
-        '<div class="l">' + esc((e.sport === 'f1' ? score : e.leagueLabel) + (when ? ' · ' + when : '') + (live && e.clock ? ' · ' + e.clock : '')) + '</div></div></div>';
+        '<div class="when' + (live ? ' live' : '') + '">' + (live ? '<span class="dot"></span>LIVE' : (e.state === 'post' ? 'DONE' : 'SOON')) + '</div>' +
+        '<div class="mid"><div class="t">' + esc(title) + '</div>' +
+        '<div class="l">' + esc(under + (when ? ' · ' + when : '') + (live && e.clock ? ' · ' + e.clock : '')) + '</div></div></div>';
     }).join('');
-    $('#liveAt').textContent = '· ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('#liveAt').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   } catch (e) {
-    if (token !== liveToken) return;
-    host.innerHTML = '<p class="note bad">Could not load scores: ' + esc(e.message) + '</p>';
+    if (token !== boardToken) return;
+    host.innerHTML = '<p class="note bad">Could not load: ' + esc(e.message) + '</p>';
   }
 }
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-/* ------------------------------------------------------------------- wire */
+/* -------------------------------------------------------------- push */
+function b64ToU8(base64) {
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const raw = atob((base64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+async function ensureSW() {
+  if (reg) return reg;
+  reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  await navigator.serviceWorker.ready;
+  return reg;
+}
+async function enable() {
+  const btn = $('#enableBtn');
+  btn.disabled = true; btn.textContent = 'Setting up…';
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      throw new Error(isIOS && !standalone
+        ? 'On iPhone, add this to your Home Screen first (Share → Add to Home Screen), then open it from that icon.'
+        : 'This browser cannot do background push. Chrome, Edge, Firefox or Safari 16.4+ can.');
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') throw new Error('Notification permission was not granted.');
+    const r = await ensureSW();
+    const { key } = await api('/vapid-public-key');
+    let sub = await r.pushManager.getSubscription();
+    if (!sub) sub = await r.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(key) });
+    const res = await api('/sports/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: uid, subscription: sub, prefs }) });
+    prefs = { ...prefs, ...res.prefs };
+    subscribed = true;
+    $('#enableNote').innerHTML = '<span class="ok">Updates are on.</span> You can close this — scores keep coming.';
+    btn.hidden = true; $('#postEnableRow').hidden = false;
+    render(); loadBoard();
+  } catch (e) {
+    $('#enableNote').innerHTML = '<span class="bad">' + esc(e.message) + '</span>';
+    btn.disabled = false; btn.textContent = 'Try again';
+  }
+  setStatus();
+}
+
 $('#enableBtn').onclick = enable;
 $('#testBtn').onclick = async () => {
   const b = $('#testBtn'); b.disabled = true; b.textContent = 'Sending…';
-  try { await api('/sports/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: uid }) }); b.textContent = 'Sent — check your notifications'; }
+  try { await api('/sports/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: uid }) }); b.textContent = 'Sent — check notifications'; }
   catch (_) { b.textContent = 'Failed, try again'; }
-  setTimeout(() => { b.disabled = false; b.textContent = 'Send test notification'; }, 2500);
+  setTimeout(() => { b.disabled = false; b.textContent = 'Send a test'; }, 2500);
 };
 $('#offBtn').onclick = async () => {
   try {
@@ -528,73 +633,55 @@ $('#offBtn').onclick = async () => {
   setStatus();
 };
 $('#digest').onchange = e => { prefs.digestMinutes = Number(e.target.value); savePrefs(); };
-$('#addLeague').onclick = async () => {
-  const v = $('#customLeague').value.trim();
-  const msg = $('#customMsg');
-  if (!v) return;
-  msg.innerHTML = '<span class="spin"></span>';
-  try {
-    const r = await api('/sports/validate?league=' + encodeURIComponent(v));
-    if (!catalog.some(l => l.id === r.league)) catalog.push({ id: r.league, group: 'Added by me', label: r.label });
-    if (!prefs.leagues.includes(r.league)) prefs.leagues.push(r.league);
-    msg.innerHTML = '<span class="ok">Added ' + esc(r.label) + '</span>';
-    $('#customLeague').value = '';
-    savePrefs(); render(); loadLive();
-  } catch (e) {
-    msg.innerHTML = '<span class="bad">Not found. Use the id from an ESPN scoreboard URL, e.g. cricket/8048.</span>';
-  }
-};
-
 navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.type === 'resubscribe') enable(); });
 
 (async function init() {
-  // Anything chosen before notifications were switched on.
   try {
     const cached = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null');
     if (cached) prefs = { ...prefs, ...cached,
       football: { ...prefs.football, ...(cached.football || {}) },
       cricket: { ...prefs.cricket, ...(cached.cricket || {}) },
       f1: { ...prefs.f1, ...(cached.f1 || {}) },
-      teamMode: { ...(cached.teamMode || {}) } };
+      teamMode: { ...(cached.teamMode || {}) },
+      follow: { cricket: [], football: [], ...(cached.follow || {}) } };
+    Object.assign(teamNames, JSON.parse(localStorage.getItem('sportsTeamNames') || '{}'));
   } catch (_) {}
 
   try {
     catalog = (await api('/sports/leagues')).leagues;
     const got = await api('/sports/prefs?userId=' + encodeURIComponent(uid));
     subscribed = got.subscribed;
-    if (subscribed) prefs = { ...prefs, ...got.prefs,
-      football: { ...prefs.football, ...(got.prefs.football || {}) },
-      cricket: { ...prefs.cricket, ...(got.prefs.cricket || {}) },
-      f1: { ...prefs.f1, ...(got.prefs.f1 || {}) },
-      teamMode: { ...(got.prefs.teamMode || {}) } };
-    cachePrefs();
-    // Leagues the server knows about but that aren't in the catalog (custom adds)
+    if (subscribed) {
+      prefs = { ...prefs, ...got.prefs,
+        football: { ...prefs.football, ...(got.prefs.football || {}) },
+        cricket: { ...prefs.cricket, ...(got.prefs.cricket || {}) },
+        f1: { ...prefs.f1, ...(got.prefs.f1 || {}) },
+        teamMode: { ...(got.prefs.teamMode || {}) },
+        follow: { cricket: [], football: [], ...(got.prefs.follow || {}) } };
+      cachePrefs();
+    }
     prefs.leagues.filter(id => !catalog.some(l => l.id === id))
-      .forEach(id => catalog.push({ id, group: 'Added by me', label: id }));
+      .forEach(id => catalog.push({ id, group: 'Series', label: id }));
   } catch (_) {}
 
   if ('serviceWorker' in navigator) {
     try {
       const r = await ensureSW();
       const sub = await r.pushManager.getSubscription();
-      // Free hosting wipes its disk on redeploy, so re-register whenever we visit.
       if (sub && Notification.permission === 'granted') {
-        await api('/sports/subscribe', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: uid, subscription: sub, prefs }),
-        });
+        await api('/sports/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: uid, subscription: sub, prefs }) });
         subscribed = true;
       }
     } catch (_) {}
   }
-
   if (subscribed) {
     $('#enableBtn').hidden = true; $('#postEnableRow').hidden = false;
-    $('#enableNote').innerHTML = '<span class="ok">Updates are on.</span> You can close this page — scores keep coming.';
+    $('#enableNote').innerHTML = '<span class="ok">Updates are on.</span> You can close this — scores keep coming.';
   }
-  render(); loadLive();
-  setInterval(loadLive, 30000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) loadLive(); });
+  wireSearch(); render(); loadBoard();
+  setInterval(loadBoard, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) loadBoard(); });
 })();
 </script>
 </body>
